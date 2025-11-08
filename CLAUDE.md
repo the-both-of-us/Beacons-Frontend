@@ -8,6 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Hackathon Theme:** "How can we leverage technology to make cities and human settlements inclusive, safe, resilient, and sustainable?"
 
+## Frontend Status (Nov 2025)
+- ✅ Landing, authentication (login/signup/anonymous), QR scanner, chat room, and thread view pages are implemented with mock data.
+- ✅ Reusable UI primitives (`components/ui`), auth forms (`components/auth`), QRScanner, chat widgets (`ChatRoom`, `MessageList`, `MessageItem`, `MessageInput`, `TagSelector`), thread widgets (`ThreadView`, `ThreadList`), and `VoteButtons` exist.
+- ✅ `hooks/useSignalR.ts` manages the mock SignalR lifecycle and exposes `sendMessage`, `voteMessage`, and `isConnected`.
+- ✅ Zustand stores: `authStore` (user/token), `roomStore` (location/room/thread metadata), `chatStore` (messages + AI responses).
+- ✅ Mock API now includes room/thread helpers (`getRoom`, `getThreadsForLocation`, `getThreadDetails`) and `lib/mock/mockThreads.ts` keeps thread metadata in sync with rooms/messages.
+- 🚧 Upcoming polish: `useAuth` guard, `useMessages`/`useVoting` hooks, richer error/loading states, responsive tweaks, and automated tests.
+
 ## Architecture
 
 This is a **full-stack Azure project** with two main components:
@@ -62,6 +70,35 @@ When users tag a message with `"location_specific_question"`:
 - **Anonymous:** Session ID in localStorage, can chat/vote, no cross-device sync
 - **Authenticated:** JWT token, full profile (username, gender, age), persistent history
 - Conversion flow: `/api/auth/convert-anonymous` upgrades anonymous to full account
+
+## Frontend Implementation Guidelines
+
+### Working with Mock Data
+- Keep `NEXT_PUBLIC_USE_MOCK_DATA=true` while backend work is pending. `lib/api.ts` already branches on this flag.
+- Use the provided helpers instead of importing mock data directly:
+  - `api.getRoom(id)`, `api.getLocation(id)` hydrate Zustand when deep-linking.
+  - `api.getThreadsForLocation(locationId)` populates the sidebar; `api.getThreadDetails(threadId)` returns `{ thread, originalMessage, replies, aiResponse }`.
+  - `api.sendMessage(roomId, content, tags, { parentThreadId? })` automatically spawns mock thread rooms + metadata when `location_specific_question` is present.
+- Thread metadata now lives in `lib/mock/mockThreads.ts`; if you introduce new seeded threads, update rooms + messages + threads together.
+
+### Real-time (Mock SignalR)
+- Always go through `hooks/useSignalR.ts`: it handles connection start/stop, registers handlers, and exposes `{ sendMessage, voteMessage, isConnected }`.
+- When wiring a new page:
+  1. Fetch initial data via `lib/api` (so SSR/deep links work).
+  2. Call `useSignalR(roomId, { onMessage, onMessageHistory, onThreadCreated, onAiResponse, onVoteUpdated })`.
+  3. Update Zustand stores inside the callbacks (`useChatStore`, `useRoomStore`).
+  4. Clean up by letting the hook unmount; it already calls `LeaveRoom`.
+
+### Thread Workflow
+- Tagging a message with `location_specific_question` sets `Message.isThreadStarter=true`. `MockSignalR` emits `ThreadCreated` and kicks off an AI response 3 seconds later.
+- Thread replies live in rooms whose id matches the thread id (e.g., `thread_bathroom_question`) and set `parentThreadId` to that same id.
+- `app/room/[roomId]/page.tsx` links to `/thread/[threadId]` via `ThreadList`. `app/thread/[threadId]/page.tsx` fetches conversation data and connects to the thread room for live replies.
+- When adding new UI that surfaces threads, rely on the `threads` array in `roomStore` (populated from API + `ThreadCreated` events).
+
+### Module Boundaries
+- Keep UI primitive logic in `components/ui` and page-specific wiring in `app/...`.
+- Shared behaviors (e.g., message pagination, guarding routes) should live in hooks (see TODO list in PROGRESS.md).
+- Do not reach into mock data files from components—always go through `lib/api`/`useSignalR` so swapping to the real backend is painless.
 
 ## Cosmos DB Containers
 
