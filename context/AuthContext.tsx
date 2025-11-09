@@ -1,11 +1,18 @@
 'use client';
 
 import { SessionProvider, useSession } from 'next-auth/react';
+import type { Session } from 'next-auth';
 import { createContext, useContext, ReactNode } from 'react';
 import { loginWithRedirect, logoutWithRedirect, isAuthConfigured } from '@/lib/authClient';
 
+type SessionUser = Session['user'] | null;
+type Role = 'admin' | 'user';
+
 interface AuthContextValue {
-  user: any | null;
+  user: SessionUser;
+  account: SessionUser;
+  role: Role;
+  isAdmin: boolean;
   loading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
@@ -17,13 +24,18 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const AuthContextProvider = ({ children }: { children: ReactNode }) => {
   const { data: session, status } = useSession();
   const loading = status === 'loading';
+  const account = session?.user || null;
+  const role = (account?.role as Role | undefined) ?? 'user';
 
   const value: AuthContextValue = {
-    user: session?.user || null,
+    user: account,
+    account,
+    role,
+    isAdmin: role === 'admin',
     loading,
     login: async () => {
       if (!isAuthConfigured) {
-        alert('Authentication is not configured. Set GOOGLE_CLIENT_ID to enable sign-in.');
+        alert('Authentication is not configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable sign-in.');
         return;
       }
       try {
@@ -45,8 +57,7 @@ const AuthContextProvider = ({ children }: { children: ReactNode }) => {
       }
     },
     getToken: async () => {
-      // With Google OAuth, we don't need tokens for the backend since it's mostly public
-      return null;
+      return session?.idToken ?? null;
     },
   };
 

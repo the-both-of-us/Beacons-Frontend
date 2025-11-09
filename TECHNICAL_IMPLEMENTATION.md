@@ -19,7 +19,7 @@
 
 > **2025-11-09 Authentication Update**
 >
-> The frontend now requires Azure AD / Entra ID access tokens for every REST and SignalR call. MSAL (`@azure/msal-browser`) powers the sign-in/out flow (`/login`, AuthStatus component, RequireAuth gates) and injects bearer tokens via `lib/api.ts` + SignalR `accessTokenFactory`. Populate the `NEXT_PUBLIC_AZURE_AD_*` variables in `.env.local` to point the client at your tenant/app registration.
+> The frontend now relies on Auth.js (NextAuth) with Google OAuth for sign-in/out (`/login`, AuthStatus component, RequireAuth gates). Populate `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and the comma-separated `ADMIN_EMAILS` allowlist in `.env.local`, then restart `npm run dev`. `lib/authClient.ts` retrieves the session’s Google ID token so `lib/api.ts` can attach `Authorization: Bearer …` for admin requests—matching the backend’s `ADMIN_EMAILS` enforcement.
 
 > **2025-11-08 QR Code Feature Implementation**
 >

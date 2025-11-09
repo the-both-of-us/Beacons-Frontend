@@ -1,8 +1,13 @@
 'use client';
 
-import { signIn, signOut, useSession } from 'next-auth/react';
+import { signIn, signOut, getSession } from 'next-auth/react';
 
-export const isAuthConfigured = Boolean(process.env.GOOGLE_CLIENT_ID);
+const publicClientId =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+  process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID ||
+  process.env.NEXT_PUBLIC_AUTH_CLIENT_ID;
+
+export const isAuthConfigured = Boolean(publicClientId);
 
 export const loginWithRedirect = async () => {
   await signIn('google', { callbackUrl: '/' });
@@ -13,14 +18,11 @@ export const logoutWithRedirect = async () => {
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
-  // Note: With Google OAuth, you don't need to pass tokens to your backend
-  // The backend will be public for most operations
-  return null;
+  const session = await getSession();
+  return session?.idToken ?? null;
 };
 
 export const getCurrentAccount = () => {
-  // This should be called within a component that has SessionProvider
-  // Use useSession hook instead
   return null;
 };
 

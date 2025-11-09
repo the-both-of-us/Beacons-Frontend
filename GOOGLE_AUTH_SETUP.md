@@ -103,12 +103,15 @@ NEXT_PUBLIC_API_URL=http://localhost:5211
 NEXT_PUBLIC_SIGNALR_URL=http://localhost:5211/chatHub
 
 # Google OAuth Configuration
-GOOGLE_CLIENT_ID=YOUR_CLIENT_ID_FROM_STEP_4
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=YOUR_CLIENT_ID_FROM_STEP_4
 GOOGLE_CLIENT_SECRET=YOUR_CLIENT_SECRET_FROM_STEP_4
 
 # NextAuth Configuration
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your-random-secret-here
+
+# Role-based Access (optional)
+ADMIN_EMAILS=admin1@example.com,admin2@example.com
 ```
 
 3. Generate a random secret for `NEXTAUTH_SECRET`:
@@ -146,6 +149,8 @@ npm run dev
 6. Click **Continue**
 
 7. You'll be redirected back to your app, now logged in!
+
+> ℹ️ **Backend Authorization:** When you hit admin APIs (create rooms, manage QR codes) the frontend automatically sends your Google ID token to the ASP.NET backend. Make sure the same email is listed in both the frontend and backend `ADMIN_EMAILS` variables; otherwise the server will reject the request with `401/403`.
 
 ---
 
@@ -206,10 +211,11 @@ When deploying to production (Vercel, Netlify, etc.):
    - Authorized redirect URIs: `https://your-domain.com/api/auth/callback/google`
 
 3. **Update environment variables** on your hosting platform:
-   - `GOOGLE_CLIENT_ID`
+   - `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
    - `NEXTAUTH_URL=https://your-domain.com`
    - `NEXTAUTH_SECRET` (same secret you generated)
+   - `ADMIN_EMAILS` (comma-separated admin emails)
 
 ---
 

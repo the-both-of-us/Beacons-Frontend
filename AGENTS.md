@@ -4,7 +4,7 @@
 Social-app-frontend uses the Next.js App Router. Route segments live in `app/` (`page.tsx`, `scan/`, `room/[roomId]/`). Reusable UI stays in `components/` (chat + shared UI), hooks sit inside `hooks/`, and platform helpers inside `lib/`. Tailwind (`app/globals.css`, `tailwind.config.ts`) drives styling.
 
 ## Build, Test, and Development Commands
-- `npm install` — install deps (includes `@microsoft/signalr`, `@azure/msal-browser` for Entra ID auth).
+- `npm install` — install deps (e.g., `@microsoft/signalr`, `next-auth` for Google Auth.js login).
 - `npm run dev` — start Next.js on http://localhost:3000.
 - `npm run build` — production bundle; fails on type errors.
 - `npm run lint` — `next lint` (add an `.eslintrc` if prompted).
@@ -23,7 +23,7 @@ Still manual: run the backend (`dotnet run`) + frontend (`npm run dev`), then ex
 - Mention environment changes (API URLs, SignalR endpoints) in the PR description.
 - Attach screenshots/GIFs for UI tweaks and call out manual verification steps.
 
--## Security & Configuration Tips
-- All runtime config is via `NEXT_PUBLIC_API_URL` + `NEXT_PUBLIC_SIGNALR_URL` + the Azure AD variables (`NEXT_PUBLIC_AZURE_AD_*`). Keep `.env.example` in sync.
+## Security & Configuration Tips
+- All runtime config is via `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SIGNALR_URL`, Auth.js vars (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`), plus `ADMIN_EMAILS` for role assignments. Keep `.env.example` in sync.
 - No secrets belong in the repo. Browsers should only see `NEXT_PUBLIC_*` values.
 - When enabling new backend endpoints, update `lib/api.ts` instead of inlining `fetch` calls.

@@ -11,7 +11,7 @@ type Tab = 'rooms' | 'qrcodes';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('rooms');
-  const { account, loading, login } = useAuth();
+  const { account, loading, login, isAdmin } = useAuth();
 
   if (loading) {
     return (
@@ -31,6 +31,23 @@ export default function AdminPage() {
           </p>
           <Button onClick={login} className="w-full">
             Sign in
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 flex items-center justify-center">
+        <div className="rounded-2xl border border-amber-200 bg-white px-6 py-8 text-center max-w-md space-y-4 shadow">
+          <h1 className="text-2xl font-bold text-gray-900">Insufficient permissions</h1>
+          <p className="text-gray-600">
+            You’re signed in, but your account isn’t listed in <code>ADMIN_EMAILS</code>. Ask an admin to add your email, then
+            sign in again.
+          </p>
+          <Button onClick={login} variant="outline" className="w-full">
+            Switch Account
           </Button>
         </div>
       </main>

@@ -12,9 +12,7 @@ export default function LoginPage() {
       <div className="mx-auto max-w-2xl py-12 space-y-6">
         <div>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Account</h1>
-          <p className="text-gray-600">
-            Sign in with your Microsoft / Entra ID account to chat, vote, and manage rooms.
-          </p>
+          <p className="text-gray-600">Sign in with your Google account to chat, vote, and manage rooms.</p>
         </div>
 
         <AuthStatus />

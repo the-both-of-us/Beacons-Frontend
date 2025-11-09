@@ -76,7 +76,7 @@ export default function ScanPage() {
         {!account && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <span>
-              You can scan QR codes without signing in. To send messages, sign in with your Microsoft account.
+              You can scan QR codes without signing in. To send messages, sign in with your Google account.
             </span>
             <Button size="sm" variant="outline" onClick={login} disabled={authLoading}>
               Sign In

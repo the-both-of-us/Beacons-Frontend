@@ -10,7 +10,7 @@
 - **Chat View (`/room/[roomId]`)** – Loads room metadata + history from the REST API, then joins `/chatHub` with a bearer token so live messaging, vote updates, and AI responses stream in securely.
 - **Realtime Messaging & Voting** – SignalR handles message delivery while REST `/api/messages/{id}/vote` records votes (with a hub fallback). Vote deltas broadcast via `VoteUpdated`.
 - **Room Tags & AI** – Admins define tags (color + AI/thread toggles) when creating rooms. The composer surfaces those tags so users can trigger “Location Specific Q” flows that feed into Claude when `ANTHROPIC_API_KEY` is set.
-- **Authentication** – MSAL-powered sign-in/out (`/login`, AuthStatus banner, RequireAuth states on `/scan`, `/room`, `/admin`) acquires Azure AD tokens, injects them into every fetch, and into SignalR via `accessTokenFactory`.
+- **Authentication** – Auth.js (NextAuth) with Google handles sign-in/out (`/login`, AuthStatus banner, RequireAuth states on `/scan`, `/room`, `/admin`). Sessions sync through the AuthContext, which now exposes role metadata (`ADMIN_EMAILS` determines admins) and can be expanded to pass tokens to REST/SignalR when needed.
 - **QR Code System** – Full lifecycle: admin QR creation/preview/download, browse/list/deactivate, plus the camera scanner in `/scan`.
 
 ## 🔧 Dev Workflow
@@ -36,7 +36,7 @@
 | SignalR integration | ✅ | Uses official client, auto-rejoins on reconnect. |
 | QR Code System | ✅ | Full implementation: camera scanning, generation, admin UI, validation, print/download. Backend: QR model, service, controller. Frontend: Scanner component, display component, admin pages. |
 | Admin Dashboard | ✅ | `/admin` page with tabs for managing rooms and QR codes. Create, view, deactivate QR codes. |
-| Authentication & secure fetches | ✅ | MSAL login/logout, token injection, SignalR accessToken factory, gated routes. |
+| Authentication & secure fetches | ✅ | NextAuth + Google login/logout wired through AuthContext; ADMIN_EMAILS allowlists admin roles and it’s ready to extend with token injection if the backend requires it. |
 | Thread UI & AI polish | ⏭️ | Thread viewer + AI transcript UI still pending; backend supports it but frontend needs dedicated UX. |
 
 ## 📝 Follow-ups
