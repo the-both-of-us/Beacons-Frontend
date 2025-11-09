@@ -19,6 +19,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
+  const [threadMessages, setThreadMessages] = useState<Record<string, Message[]>>({});
+  const [loadingThreads, setLoadingThreads] = useState<Set<string>>(new Set());
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const { account } = useAuth();
 
   useEffect(() => {
@@ -60,15 +63,46 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     [messages]
   );
 
-  const { isConnected, assignedUsername, sendMessage, voteMessage: voteMessageViaHub } = useChatHub({
+  const { isConnected, assignedUsername, sendMessage, voteMessage: voteMessageViaHub, getThreadMessages } = useChatHub({
     roomId,
     onHistory: (history) => {
       setMessages(history);
     },
+    onThreadHistory: (threadMsgs) => {
+      // Group thread messages by their parent
+      if (threadMsgs.length > 0) {
+        const parentId = threadMsgs[0].parentMessageId;
+        if (parentId) {
+          setThreadMessages((prev) => ({
+            ...prev,
+            [parentId]: threadMsgs,
+          }));
+        }
+      }
+    },
     onMessage: (message) => {
-      setMessages((prev) => [...prev, message]);
+      // If it's a thread reply, add it to the thread messages
+      if (message.parentMessageId) {
+        const parentId = message.parentMessageId;
+        setThreadMessages((prev) => ({
+          ...prev,
+          [parentId]: [...(prev[parentId] || []), message],
+        }));
+        // Update reply count on parent message
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === parentId
+              ? { ...msg, replyCount: (msg.replyCount || 0) + 1 }
+              : msg
+          )
+        );
+      } else {
+        // Regular message
+        setMessages((prev) => [...prev, message]);
+      }
     },
     onVoteUpdate: (update: VoteUpdate) => {
+      // Update votes in main messages
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === update.messageId
@@ -80,6 +114,22 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
             : msg
         )
       );
+      // Update votes in thread messages
+      setThreadMessages((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((threadId) => {
+          updated[threadId] = updated[threadId].map((msg) =>
+            msg.id === update.messageId
+              ? {
+                  ...msg,
+                  votes: { upvotes: update.upvotes, downvotes: update.downvotes },
+                  voteCount: update.voteCount,
+                }
+              : msg
+          );
+        });
+        return updated;
+      });
     },
     onError: (err) => {
       setError(err.message);
@@ -120,6 +170,67 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
       setReplyingTo({ id: message.id, username: message.username });
     }
   };
+
+  const handleToggleThread = async (messageId: string) => {
+    const message = messages.find((m) => m.id === messageId);
+    if (!message) return;
+
+    const threadId = message.threadId || message.id;
+
+    // Toggle expanded state
+    setExpandedThreads((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+      return next;
+    });
+
+    // If not already loaded and we're expanding, fetch thread messages
+    if (!threadMessages[messageId] && !expandedThreads.has(messageId)) {
+      setLoadingThreads((prev) => new Set(prev).add(messageId));
+      try {
+        await getThreadMessages(threadId);
+        // Note: The backend should send thread messages via SignalR which will be handled by onMessage
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load thread');
+      } finally {
+        setLoadingThreads((prev) => {
+          const next = new Set(prev);
+          next.delete(messageId);
+          return next;
+        });
+      }
+    }
+  };
+
+  // Auto-fetch threads for location-specific-question messages
+  useEffect(() => {
+    const locationQuestions = messages.filter(
+      (msg) => msg.tags?.includes('location-specific-question') && msg.isThreadStarter && (msg.replyCount || 0) > 0
+    );
+
+    locationQuestions.forEach(async (msg) => {
+      const threadId = msg.threadId || msg.id;
+      // Only fetch if not already loaded
+      if (!threadMessages[msg.id] && !loadingThreads.has(msg.id)) {
+        setLoadingThreads((prev) => new Set(prev).add(msg.id));
+        try {
+          await getThreadMessages(threadId);
+        } catch (err) {
+          console.error('Failed to auto-load thread:', err);
+        } finally {
+          setLoadingThreads((prev) => {
+            const next = new Set(prev);
+            next.delete(msg.id);
+            return next;
+          });
+        }
+      }
+    });
+  }, [messages, getThreadMessages]);
 
   if (isLoading) {
     return (
@@ -180,6 +291,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
               messages={sortedMessages}
               onVote={handleVote}
               onReply={handleReply}
+              threadMessages={threadMessages}
+              loadingThreads={loadingThreads}
+              expandedThreads={expandedThreads}
+              onToggleThread={handleToggleThread}
             />
           </div>
 

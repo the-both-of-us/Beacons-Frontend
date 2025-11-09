@@ -33,6 +33,7 @@ interface UseChatHubOptions {
   roomId: string;
   onMessage?: (message: Message) => void;
   onHistory?: (messages: Message[]) => void;
+  onThreadHistory?: (messages: Message[]) => void;
   onVoteUpdate?: (update: VoteUpdate) => void;
   onError?: (error: Error) => void;
   enabled?: boolean;
@@ -62,11 +63,12 @@ const isNegotiationCancellation = (error: unknown) => {
   );
 };
 
-export const useChatHub = ({ roomId, onMessage, onHistory, onVoteUpdate, onError, enabled = true }: UseChatHubOptions) => {
+export const useChatHub = ({ roomId, onMessage, onHistory, onThreadHistory, onVoteUpdate, onError, enabled = true }: UseChatHubOptions) => {
   const connectionRef = useRef<HubConnection | null>(null);
   const callbacksRef = useRef({
     onMessage,
     onHistory,
+    onThreadHistory,
     onVoteUpdate,
     onError,
   });
@@ -74,8 +76,8 @@ export const useChatHub = ({ roomId, onMessage, onHistory, onVoteUpdate, onError
   const [assignedUsername, setAssignedUsername] = useState<string | null>(null);
 
   useEffect(() => {
-    callbacksRef.current = { onMessage, onHistory, onVoteUpdate, onError };
-  }, [onMessage, onHistory, onVoteUpdate, onError]);
+    callbacksRef.current = { onMessage, onHistory, onThreadHistory, onVoteUpdate, onError };
+  }, [onMessage, onHistory, onThreadHistory, onVoteUpdate, onError]);
 
   useEffect(() => {
     if (!enabled) {
@@ -109,6 +111,10 @@ export const useChatHub = ({ roomId, onMessage, onHistory, onVoteUpdate, onError
 
     connection.on('ReceiveMessageHistory', (history: MessageDto[]) => {
       callbacksRef.current.onHistory?.(history.map(mapMessageDto));
+    });
+
+    connection.on('ReceiveThreadHistory', (history: MessageDto[]) => {
+      callbacksRef.current.onThreadHistory?.(history.map(mapMessageDto));
     });
 
     connection.on('ReceiveMessage', (dto: MessageDto) => {
@@ -159,6 +165,7 @@ export const useChatHub = ({ roomId, onMessage, onHistory, onVoteUpdate, onError
       isCancelled = true;
       connection.off('AssignedUsername');
       connection.off('ReceiveMessageHistory');
+      connection.off('ReceiveThreadHistory');
       connection.off('ReceiveMessage');
       connection.off('VoteUpdated');
       connection.off('Error');

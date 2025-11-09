@@ -2,20 +2,36 @@
 
 import { Message } from '@/types';
 import { formatRelativeTime } from '@/lib/utils';
+import { ThreadView } from './ThreadView';
 
 interface MessageItemProps {
   message: Message;
   onVote?: (messageId: string, voteType: 'up' | 'down') => void;
   onReply?: (messageId: string) => void;
-  onViewThread?: (threadId: string) => void;
+  threadMessages?: Message[];
+  isLoadingThread?: boolean;
+  onToggleThread?: (messageId: string) => void;
+  isThreadExpanded?: boolean;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message, onVote, onReply, onViewThread }) => {
+export const MessageItem: React.FC<MessageItemProps> = ({
+  message,
+  onVote,
+  onReply,
+  threadMessages,
+  isLoadingThread,
+  onToggleThread,
+  isThreadExpanded
+}) => {
   const handleVote = (voteType: 'up' | 'down') => {
     if (onVote) {
       onVote(message.id, voteType);
     }
   };
+
+  // Auto-expand threads for location-specific-question tag
+  const hasLocationTag = message.tags?.includes('location-specific-question');
+  const shouldShowThread = hasLocationTag && message.isThreadStarter && (message.replyCount || 0) > 0;
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 shadow-sm">
@@ -93,19 +109,28 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, onVote, onRep
           </button>
         )}
 
-        {/* View Thread Button */}
-        {message.isThreadStarter && (message.replyCount || 0) > 0 && onViewThread && (
+        {/* View Thread Button - only show for non-location-specific messages */}
+        {!hasLocationTag && message.isThreadStarter && (message.replyCount || 0) > 0 && onToggleThread && (
           <button
-            onClick={() => onViewThread(message.threadId || message.id)}
+            onClick={() => onToggleThread(message.id)}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-blue-600 hover:bg-blue-50 transition-colors font-medium"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-            {message.replyCount || 0} {(message.replyCount || 0) === 1 ? 'reply' : 'replies'}
+            {isThreadExpanded ? 'Hide' : 'View'} {message.replyCount || 0} {(message.replyCount || 0) === 1 ? 'reply' : 'replies'}
           </button>
         )}
       </div>
+
+      {/* Thread Display - auto-show for location-specific-question or manually toggled */}
+      {shouldShowThread && (isThreadExpanded || hasLocationTag) && (
+        <ThreadView
+          messages={threadMessages || []}
+          isLoading={isLoadingThread}
+          onVote={onVote}
+        />
+      )}
     </div>
   );
 };

@@ -8,10 +8,21 @@ interface MessageListProps {
   messages: Message[];
   onVote?: (messageId: string, voteType: 'up' | 'down') => void;
   onReply?: (messageId: string) => void;
-  onViewThread?: (threadId: string) => void;
+  threadMessages?: Record<string, Message[]>;
+  loadingThreads?: Set<string>;
+  expandedThreads?: Set<string>;
+  onToggleThread?: (messageId: string) => void;
 }
 
-export const MessageList: React.FC<MessageListProps> = ({ messages, onVote, onReply, onViewThread }) => {
+export const MessageList: React.FC<MessageListProps> = ({
+  messages,
+  onVote,
+  onReply,
+  threadMessages,
+  loadingThreads,
+  expandedThreads,
+  onToggleThread
+}) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -37,7 +48,10 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, onVote, onRe
           message={message}
           onVote={onVote}
           onReply={onReply}
-          onViewThread={onViewThread}
+          threadMessages={threadMessages?.[message.id]}
+          isLoadingThread={loadingThreads?.has(message.id)}
+          isThreadExpanded={expandedThreads?.has(message.id)}
+          onToggleThread={onToggleThread}
         />
       ))}
     </div>
