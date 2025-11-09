@@ -36,3 +36,42 @@ body {
   transform-origin: bottom left;
   opacity: 0.9;
 }
+
+/* Toast animations */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+/* Enhanced focus states for accessibility */
+*:focus-visible {
+  @apply outline-none ring-2 ring-blue-500 ring-offset-2 rounded;
+}
+
+/* Improved typography hierarchy */
+h1 {
+  @apply text-4xl sm:text-5xl font-extrabold tracking-tight;
+}
+
+h2 {
+  @apply text-3xl sm:text-4xl font-bold tracking-tight;
+}
+
+h3 {
+  @apply text-xl sm:text-2xl font-semibold;
+}
+
+/* Enhanced body text */
+body {
+  @apply antialiased text-gray-900;
+}

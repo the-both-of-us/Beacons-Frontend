@@ -6,8 +6,8 @@ import { Providers } from './providers'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Social App - Connect Your Community',
-  description: 'Location-based social platform for inclusive, safe community connections',
+  title: 'Beacons - Turn Strangers Into Neighbors',
+  description: 'Location-based social platform that brings communities together. Ask questions, share knowledge, and connect with people near you.',
 }
 
 export default function RootLayout({

@@ -9,8 +9,10 @@ import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { useChatHub } from '@/hooks/useChatHub';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/Toast';
 import { hasScannedRoom } from '@/lib/roomAccess';
 import { Button } from '@/components/ui/Button';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 interface ChatRoomProps {
   roomId: string;
@@ -18,6 +20,7 @@ interface ChatRoomProps {
 
 export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   const router = useRouter();
+  const { showToast } = useToast();
   const [room, setRoom] = useState<Room | null>(null);
   const [allMessages, setAllMessages] = useState<Message[]>([]); // Single flat array for ALL messages
   const [isLoading, setIsLoading] = useState(true);
@@ -198,7 +201,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
 
   const handleVote = async (messageId: string, voteType: 'up' | 'down') => {
     if (!account) {
-      showNotification('Log in to vote.');
+      showToast('Sign in to vote on messages.', 'warning');
       return;
     }
 
@@ -208,13 +211,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
       try {
         await voteMessageViaHub(messageId, voteType);
       } catch (hubError) {
-        setError(
+        const errorMessage =
           hubError instanceof Error
             ? hubError.message
             : err instanceof Error
               ? err.message
-              : 'Failed to vote'
-        );
+              : 'Failed to vote';
+        showToast(errorMessage, 'error');
       }
     }
   };
@@ -281,11 +284,16 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white px-4 py-6">
-        <div className="mx-auto max-w-3xl rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
-          {error}
+      <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4 py-6">
+        <div className="max-w-md">
+          <ErrorState
+            title="Connection Error"
+            message={error}
+            onRetry={() => window.location.reload()}
+            onGoBack={() => router.back()}
+          />
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -296,14 +304,16 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   return (
     <main className="h-screen overflow-hidden bg-gradient-to-b from-blue-50 to-white flex flex-col relative">
       {/* Header - Fixed height */}
-      <div className="flex-shrink-0 px-2 sm:px-4 py-2 sm:py-4 border-b border-gray-100 bg-white/80 backdrop-blur">
+      <div className="flex-shrink-0 px-3 sm:px-4 py-3 sm:py-4 border-b border-gray-100 bg-white/80 backdrop-blur">
         <div className="mx-auto max-w-5xl">
-            <div className="flex flex-col gap-1 sm:gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            {/* Top row: Title and connection status */}
+            <div className="flex items-start justify-between gap-2 sm:gap-4">
               <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm uppercase tracking-wide text-blue-600">Now chatting in</p>
-                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{room.name}</h1>
+                <p className="text-[10px] sm:text-xs uppercase tracking-wide text-blue-600 font-semibold">Now chatting in</p>
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate leading-tight">{room.name}</h1>
                 {room.locationName && (
-                  <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                  <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] sm:text-xs font-medium text-blue-700 border border-blue-100">
                     <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 11a3 3 0 100-6 3 3 0 000 6z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4.5 8-11a8 8 0 10-16 0c0 6.5 8 11 8 11z" />
@@ -312,20 +322,29 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
                   </div>
                 )}
               </div>
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 shadow-sm">
+              {/* Connection badge */}
+              <span className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full border-2 border-gray-200 bg-white px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-semibold text-gray-700 shadow-sm flex-shrink-0 whitespace-nowrap">
                 <span
-                  className={`h-2 w-2 rounded-full ${
-                    isConnected ? 'bg-green-500' : 'bg-gray-300'
+                  className={`relative h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full ${
+                    isConnected ? 'bg-green-500' : 'bg-gray-400'
                   }`}
-                />
-                {isConnected ? 'Connected' : 'Connecting…'}
+                >
+                  {isConnected && (
+                    <span className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-75" />
+                  )}
+                </span>
+                {isConnected ? 'Live' : 'Connecting…'}
               </span>
+            </div>
+
+            {/* Bottom row: Navigation buttons */}
+            <div className="flex items-center gap-2 justify-end">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => router.back()}
                 type="button"
+                className="text-xs px-2.5 py-1"
               >
                 Back
               </Button>
@@ -334,6 +353,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
                 size="sm"
                 onClick={() => router.push('/')}
                 type="button"
+                className="text-xs px-2.5 py-1"
               >
                 Home
               </Button>

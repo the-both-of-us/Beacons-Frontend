@@ -15,9 +15,9 @@ export default function Home() {
         <div className="container mx-auto flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-blue-900">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white font-bold">
-              SA
+              🔦
             </span>
-            Social App
+            Beacons
           </Link>
           <AuthStatus variant="header" />
         </div>
@@ -27,17 +27,17 @@ export default function Home() {
       <div className="container mx-auto px-4 py-16">
         <div className="text-center max-w-4xl mx-auto">
           {/* Logo/Title */}
-          <h1 className="text-6xl font-bold text-gray-900 mb-4">
-            Social App
+          <h1 className="text-6xl sm:text-7xl font-extrabold text-gray-900 mb-4 tracking-tight">
+            Beacons
           </h1>
 
-          {/* Tagline */}
-          <p className="text-2xl text-gray-600 mb-8">
-            Connect Your Community, One Location at a Time
+          {/* Slogan */}
+          <p className="text-2xl sm:text-3xl text-gray-700 font-semibold mb-8">
+            Turn strangers into neighbors
           </p>
 
           {/* Description */}
-          <p className="text-lg text-gray-700 mb-12 max-w-2xl mx-auto">
+          <p className="text-lg text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed">
             A location-based platform that brings people together through QR codes.
             Join real-time conversations, ask questions, and get AI-assisted answers
             specific to your physical location.
