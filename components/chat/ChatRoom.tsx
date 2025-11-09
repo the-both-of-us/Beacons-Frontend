@@ -7,7 +7,6 @@ import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { useChatHub } from '@/hooks/useChatHub';
 import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/Button';
 
 interface ChatRoomProps {
   roomId: string;
@@ -20,14 +19,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
-  const { account, loading: authLoading, login } = useAuth();
+  const { account } = useAuth();
 
   useEffect(() => {
-    if (!account) {
-      setIsLoading(false);
-      return;
-    }
-
     let active = true;
     setIsLoading(true);
     setError(null);
@@ -56,7 +50,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     return () => {
       active = false;
     };
-  }, [roomId, account]);
+  }, [roomId]);
 
   const sortedMessages = useMemo(
     () =>
@@ -90,7 +84,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     onError: (err) => {
       setError(err.message);
     },
-    enabled: !!account,
+    enabled: true,
   });
 
   const handleSend = async (content: string, tags?: string[], parentMessageId?: string) => {
@@ -127,7 +121,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     }
   };
 
-  if (authLoading || (isLoading && account)) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white px-4 py-6">
         <div className="mx-auto max-w-4xl space-y-4">
@@ -136,22 +130,6 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
           ))}
         </div>
       </div>
-    );
-  }
-
-  if (!account) {
-    return (
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white px-4 py-6 flex items-center justify-center">
-        <div className="max-w-md rounded-2xl border border-blue-200 bg-white px-6 py-8 text-center space-y-4 shadow-lg">
-          <h1 className="text-2xl font-bold text-gray-900">Sign in required</h1>
-          <p className="text-gray-600">
-            Please sign in with your organization account to join this room.
-          </p>
-          <Button onClick={login} className="w-full">
-            Sign in
-          </Button>
-        </div>
-      </main>
     );
   }
 

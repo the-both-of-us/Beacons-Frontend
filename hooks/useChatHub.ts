@@ -97,8 +97,14 @@ export const useChatHub = ({ roomId, onMessage, onHistory, onVoteUpdate, onError
 
     connectionRef.current = connection;
 
-    connection.on('AssignedUsername', (username: string) => {
-      setAssignedUsername(username);
+    connection.on('AssignedUsername', (payload: { username: string; isAuthenticated?: boolean; roles?: string[] } | string) => {
+      if (typeof payload === 'string') {
+        setAssignedUsername(payload);
+      } else if (payload?.username) {
+        setAssignedUsername(payload.username);
+      } else {
+        setAssignedUsername(null);
+      }
     });
 
     connection.on('ReceiveMessageHistory', (history: MessageDto[]) => {
