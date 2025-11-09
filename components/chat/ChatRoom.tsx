@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Message, Room, VoteUpdate } from '@/types';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { useChatHub } from '@/hooks/useChatHub';
 import { useAuth } from '@/context/AuthContext';
+import { hasScannedRoom } from '@/lib/roomAccess';
+import { Button } from '@/components/ui/Button';
 
 interface ChatRoomProps {
   roomId: string;
@@ -22,7 +25,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   const [threadMessages, setThreadMessages] = useState<Record<string, Message[]>>({});
   const [loadingThreads, setLoadingThreads] = useState<Set<string>>(new Set());
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
-  const { account } = useAuth();
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+  const { account, isAdmin } = useAuth();
 
   useEffect(() => {
     let active = true;
@@ -31,6 +35,17 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
 
     const load = async () => {
       try {
+        // Check if user has access to this room
+        const canAccess = isAdmin || hasScannedRoom(roomId);
+        setHasAccess(canAccess);
+
+        if (!canAccess) {
+          if (active) {
+            setIsLoading(false);
+          }
+          return;
+        }
+
         const [roomDetails, history] = await Promise.all([
           api.getRoom(roomId),
           api.getRoomMessages(roomId),
@@ -53,7 +68,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     return () => {
       active = false;
     };
-  }, [roomId]);
+  }, [roomId, isAdmin]);
 
   const sortedMessages = useMemo(
     () =>
@@ -239,6 +254,33 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
           {Array.from({ length: 4 }).map((_, idx) => (
             <div key={idx} className="h-24 animate-pulse rounded-2xl bg-white/60" />
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Access denied
+  if (hasAccess === false) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white px-4 py-6 flex items-center justify-center">
+        <div className="mx-auto max-w-md rounded-2xl border border-amber-200 bg-white px-6 py-8 shadow-lg text-center space-y-4">
+          <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Room Access Required</h1>
+          <p className="text-gray-600">
+            You need to scan a QR code to access this room. QR codes are located at physical locations (classrooms, libraries, etc.).
+          </p>
+          <div className="flex flex-col gap-2 pt-4">
+            <Link href="/scan">
+              <Button className="w-full">Scan QR Code</Button>
+            </Link>
+            <Link href="/">
+              <Button variant="outline" className="w-full">Back to Home</Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
