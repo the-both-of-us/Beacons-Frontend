@@ -24,6 +24,14 @@ export const authOptions: NextAuthOptions = {
         process.env.GOOGLE_CLIENT_ID ||
         '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      authorization: {
+        params: {
+          scope: 'openid email profile',
+          prompt: 'consent',
+          access_type: 'offline',
+          response_type: 'code',
+        },
+      },
     }),
   ],
   callbacks: {

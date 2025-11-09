@@ -25,6 +25,7 @@ interface RoomDto {
   id: string;
   name: string;
   description?: string;
+  locationName?: string;
   createdAt: string;
   availableTags?: RoomTagDto[];
 }
@@ -81,6 +82,7 @@ const mapRoomDto = (dto: RoomDto): Room => ({
   id: dto.id,
   name: dto.name,
   description: dto.description,
+  locationName: dto.locationName,
   createdAt: dto.createdAt,
   availableTags: dto.availableTags?.map((tag) => ({
     name: tag.name,
@@ -124,6 +126,7 @@ export const api = {
         id: data.roomId || undefined,
         name: data.name,
         description: data.description,
+        locationName: data.locationName,
         availableTags: data.availableTags,
       }),
     });
@@ -184,6 +187,12 @@ export const api = {
     return request<Admin>('/api/admins', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  async deleteRoom(roomId: string): Promise<void> {
+    return request<void>(`/api/rooms/${encodeURIComponent(roomId)}`, {
+      method: 'DELETE',
     });
   },
 

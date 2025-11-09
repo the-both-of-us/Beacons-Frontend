@@ -2,6 +2,8 @@
 
 import { Message } from '@/types';
 import { formatRelativeTime } from '@/lib/utils';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface MessageItemProps {
   message: Message;
@@ -58,7 +60,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       )}
 
       {/* Message Content */}
-      <p className="mt-2 sm:mt-3 text-sm sm:text-base text-gray-800 leading-relaxed break-words">{message.message}</p>
+      {message.aiGenerated ? (
+        <div className="mt-2 sm:mt-3 text-sm sm:text-base text-gray-800 leading-relaxed break-words prose prose-sm sm:prose-base max-w-none prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-a:text-blue-600 prose-a:underline prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-pre:bg-gray-100 prose-pre:border prose-pre:border-gray-200">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.message}</ReactMarkdown>
+        </div>
+      ) : (
+        <p className="mt-2 sm:mt-3 text-sm sm:text-base text-gray-800 leading-relaxed break-words">{message.message}</p>
+      )}
 
       {/* Actions */}
       <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
@@ -198,7 +206,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">{formatRelativeTime(reply.timestamp)}</span>
               </div>
 
-              <p className="mt-2 text-xs sm:text-sm text-gray-800 leading-relaxed break-words">{reply.message}</p>
+              {reply.aiGenerated ? (
+                <div className="mt-2 text-xs sm:text-sm text-gray-800 leading-relaxed break-words prose prose-xs sm:prose-sm max-w-none prose-headings:font-semibold prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-a:text-blue-600 prose-a:underline prose-code:bg-white prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-white prose-pre:border prose-pre:border-gray-200">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{reply.message}</ReactMarkdown>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs sm:text-sm text-gray-800 leading-relaxed break-words">{reply.message}</p>
+              )}
 
               {/* Reply voting */}
               {onVote && (

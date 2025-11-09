@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { api } from '@/lib/api';
-import { Room, RoomTag } from '@/types';
+import { QRCode, Room, RoomTag } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 
@@ -10,13 +10,15 @@ interface TagForm extends RoomTag {}
 
 interface CreateRoomModalProps {
   onClose: () => void;
-  onSuccess: (room: Room) => void;
+  onSuccess: (room: Room, qrCode: QRCode) => void;
 }
 
 export function CreateRoomModal({ onClose, onSuccess }: CreateRoomModalProps) {
   const [name, setName] = useState('');
   const [roomId, setRoomId] = useState('');
   const [description, setDescription] = useState('');
+  const [locationName, setLocationName] = useState('');
+  const [qrExpiresAt, setQrExpiresAt] = useState('');
   const [tags, setTags] = useState<TagForm[]>([
     {
       name: 'location_specific_question',
@@ -65,19 +67,41 @@ export function CreateRoomModal({ onClose, onSuccess }: CreateRoomModalProps) {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+
+    const trimmedLocation = locationName.trim();
+    if (!trimmedLocation) {
+      setError('Location is required to generate a QR code.');
+      return;
+    }
+
     setIsSubmitting(true);
+    let createdRoom: Room | null = null;
 
     try {
       const room = await api.createRoom({
         name: name.trim(),
         description: description.trim() || undefined,
         roomId: roomId.trim() || undefined,
+        locationName: trimmedLocation,
         availableTags: normalizedTags,
       });
 
-      onSuccess(room);
+      createdRoom = room;
+
+      const qrCode = await api.createQRCode({
+        roomId: room.id,
+        locationName: trimmedLocation,
+        expiresAt: qrExpiresAt || undefined,
+      });
+
+      onSuccess(room, qrCode);
       onClose();
     } catch (err) {
+      if (createdRoom) {
+        await api.deleteRoom(createdRoom.id).catch(() => {
+          /* ignore rollback failure */
+        });
+      }
       setError(err instanceof Error ? err.message : 'Failed to create room');
     } finally {
       setIsSubmitting(false);
@@ -85,77 +109,120 @@ export function CreateRoomModal({ onClose, onSuccess }: CreateRoomModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">Create Room</h2>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="p-8 space-y-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-blue-600 font-semibold">New Room</p>
+              <h2 className="text-3xl font-bold text-gray-900">Create a Room & QR Code</h2>
+              <p className="text-sm text-gray-500">
+                Add room details, assign a physical location, and pre-configure message tags.
+              </p>
+            </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              className="text-gray-400 hover:text-gray-600 text-3xl leading-none"
               aria-label="Close create room modal"
             >
               ×
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-8">
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
                 {error}
               </div>
             )}
 
-            <div>
-              <label htmlFor="roomName" className="block text-sm font-medium text-gray-700 mb-1">
-                Room Name <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="roomName"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Library, Cafeteria"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="roomId" className="block text-sm font-medium text-gray-700 mb-1">
-                Room ID (optional)
-              </label>
-              <Input
-                id="roomId"
-                type="text"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                placeholder="leave empty to auto-generate"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Lowercase letters, numbers, and hyphens only. If blank we'll create one from the name.
-              </p>
-            </div>
-
-            <div>
-              <label htmlFor="roomDescription" className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <textarea
-                id="roomDescription"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Optional summary to show in the room list"
-              />
-            </div>
-
-            {/* Tags */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">
-                  Tags (used when composing messages)
+            <section className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Room Details</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="roomName" className="block text-sm font-medium text-gray-700">
+                    Room Name <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="roomName"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g., Library, Cafeteria"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="roomId" className="block text-sm font-medium text-gray-700">
+                    Custom Room ID (optional)
+                  </label>
+                  <Input
+                    id="roomId"
+                    type="text"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    placeholder="leave empty to auto-generate"
+                  />
+                  <p className="text-xs text-gray-500">Lowercase letters, numbers, and hyphens only.</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="roomDescription" className="block text-sm font-medium text-gray-700">
+                  Description
                 </label>
+                <textarea
+                  id="roomDescription"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Optional summary to show in the room list"
+                />
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Location & QR Code</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="locationName" className="block text-sm font-medium text-gray-700">
+                    Location Name <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="locationName"
+                    type="text"
+                    value={locationName}
+                    onChange={(e) => setLocationName(e.target.value)}
+                    placeholder="e.g., Library Entrance, Main Hall"
+                    required
+                  />
+                  <p className="text-xs text-gray-500">
+                    This appears on the QR code and inside the dashboard.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="qrExpiresAt" className="block text-sm font-medium text-gray-700">
+                    Expiration Date (optional)
+                  </label>
+                  <Input
+                    id="qrExpiresAt"
+                    type="datetime-local"
+                    value={qrExpiresAt}
+                    onChange={(e) => setQrExpiresAt(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-500">Leave blank for a permanent QR code.</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h3 className="text-lg	font-semibold text-gray-900">Message Tags</h3>
+                  <p className="text-sm text-gray-500">
+                    Tags appear as quick-select chips when someone posts in the room.
+                  </p>
+                </div>
                 <Button type="button" variant="outline" size="sm" onClick={addTag}>
                   Add Tag
                 </Button>
@@ -169,11 +236,9 @@ export function CreateRoomModal({ onClose, onSuccess }: CreateRoomModalProps) {
 
               <div className="space-y-4">
                 {tags.map((tag, index) => (
-                  <div key={index} className="rounded-lg border border-gray-200 p-4 space-y-3">
+                  <div key={index} className="rounded-2xl border border-dashed border-gray-200 p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-gray-700">
-                        Tag {index + 1}
-                      </p>
+                      <p className="text-sm font-semibold text-gray-700">Tag {index + 1}</p>
                       {tags.length > 1 && (
                         <button
                           type="button"
@@ -222,27 +287,25 @@ export function CreateRoomModal({ onClose, onSuccess }: CreateRoomModalProps) {
                           <Input
                             value={tag.color}
                             onChange={(e) => updateTag(index, { color: e.target.value })}
-                            className="flex-1"
-                            placeholder="#2563eb"
                           />
                         </div>
                       </div>
-                      <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-4">
                         <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                           <input
                             type="checkbox"
                             checked={tag.enableAiResponse}
                             onChange={(e) => updateTag(index, { enableAiResponse: e.target.checked })}
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                           />
-                          Enable AI response
+                          Enable AI reply
                         </label>
                         <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                           <input
                             type="checkbox"
                             checked={tag.enableThreading}
                             onChange={(e) => updateTag(index, { enableThreading: e.target.checked })}
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                           />
                           Enable threading
                         </label>
@@ -251,14 +314,14 @@ export function CreateRoomModal({ onClose, onSuccess }: CreateRoomModalProps) {
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" onClick={onClose}>
+            <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
+              <Button type="button" onClick={onClose} variant="outline">
                 Cancel
               </Button>
-              <Button type="submit" disabled={!name.trim() || isSubmitting}>
-                {isSubmitting ? 'Creating…' : 'Create Room'}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Creating…' : 'Create Room & QR'}
               </Button>
             </div>
           </form>

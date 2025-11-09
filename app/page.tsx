@@ -11,6 +11,18 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <header className="border-b border-blue-100/60 bg-white/70 backdrop-blur">
+        <div className="container mx-auto flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-blue-900">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white font-bold">
+              SA
+            </span>
+            Social App
+          </Link>
+          <AuthStatus variant="header" />
+        </div>
+      </header>
+
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
         <div className="text-center max-w-4xl mx-auto">
@@ -62,9 +74,6 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mb-10">
-          <AuthStatus />
-        </div>
 
         {/* Features Grid */}
         <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">

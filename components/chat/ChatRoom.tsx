@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Message, Room, VoteUpdate } from '@/types';
 import { MessageList } from './MessageList';
@@ -16,6 +17,7 @@ interface ChatRoomProps {
 }
 
 export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
+  const router = useRouter();
   const [room, setRoom] = useState<Room | null>(null);
   const [allMessages, setAllMessages] = useState<Message[]>([]); // Single flat array for ALL messages
   const [isLoading, setIsLoading] = useState(true);
@@ -25,6 +27,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const { account, isAdmin } = useAuth();
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
+  const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const focusMessageInput = () => {
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -83,8 +87,6 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     const replies: Record<string, Message[]> = {};
     const aiLoading = new Set<string>();
 
-    console.log('🔄 Recalculating message structure. Total messages:', allMessages.length);
-
     allMessages.forEach((msg) => {
       if (msg.parentMessageId) {
         // It's a thread reply
@@ -116,31 +118,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
       const threadRepliesForMsg = replies[msg.id] || [];
       const hasAiReply = threadRepliesForMsg.some((reply) => reply.aiGenerated === true);
 
-      console.log(`🔍 Message ${msg.id.slice(0, 8)}:`, {
-        hasLocationTag,
-        isThreadStarter: msg.isThreadStarter,
-        replyCount: threadRepliesForMsg.length,
-        hasAiReply,
-        replies: threadRepliesForMsg.map(r => ({
-          id: r.id.slice(0, 8),
-          aiGenerated: r.aiGenerated,
-          username: r.username
-        }))
-      });
-
       if (hasLocationTag && msg.isThreadStarter && !hasAiReply) {
-        console.log(`⏳ Setting AI loading for message ${msg.id.slice(0, 8)}`);
         aiLoading.add(msg.id);
-      } else if (hasLocationTag && hasAiReply) {
-        console.log(`✅ AI response found for message ${msg.id.slice(0, 8)}`);
       }
-    });
-
-    console.log('📊 Final state:', {
-      topLevelCount: topLevel.length,
-      threadCount: Object.keys(replies).length,
-      loadingCount: aiLoading.size,
-      loadingMessages: Array.from(aiLoading).map(id => id.slice(0, 8))
     });
 
     return { topLevelMessages: topLevel, threadReplies: replies, aiLoadingForMessages: aiLoading };
@@ -161,15 +141,6 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
       });
     },
     onMessage: (message) => {
-      console.log('📨 Message received:', {
-        id: message.id,
-        username: message.username,
-        parentMessageId: message.parentMessageId,
-        aiGenerated: message.aiGenerated,
-        isThreadStarter: message.isThreadStarter,
-        tags: message.tags,
-      });
-
       // Add any new message to the flat array
       setAllMessages((prev) => {
         // Avoid duplicates
@@ -215,7 +186,22 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     }
   };
 
+  const showNotification = (message: string, duration = 3000) => {
+    setNotification(message);
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
+    }
+    notificationTimeoutRef.current = setTimeout(() => {
+      setNotification(null);
+    }, duration);
+  };
+
   const handleVote = async (messageId: string, voteType: 'up' | 'down') => {
+    if (!account) {
+      showNotification('Log in to vote.');
+      return;
+    }
+
     try {
       await api.voteMessage(roomId, messageId, voteType, assignedUsername ?? undefined);
     } catch (err) {
@@ -245,6 +231,14 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
       focusMessageInput();
     }
   }, [replyingTo]);
+
+  useEffect(() => {
+    return () => {
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -300,15 +294,24 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   }
 
   return (
-    <main className="h-screen overflow-hidden bg-gradient-to-b from-blue-50 to-white flex flex-col">
+    <main className="h-screen overflow-hidden bg-gradient-to-b from-blue-50 to-white flex flex-col relative">
       {/* Header - Fixed height */}
       <div className="flex-shrink-0 px-2 sm:px-4 py-2 sm:py-4 border-b border-gray-100 bg-white/80 backdrop-blur">
         <div className="mx-auto max-w-5xl">
-          <div className="flex flex-col gap-1 sm:gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm uppercase tracking-wide text-blue-600">Now chatting in</p>
-              <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{room.name}</h1>
-            </div>
+            <div className="flex flex-col gap-1 sm:gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm uppercase tracking-wide text-blue-600">Now chatting in</p>
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{room.name}</h1>
+                {room.locationName && (
+                  <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 11a3 3 0 100-6 3 3 0 000 6z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 22s8-4.5 8-11a8 8 0 10-16 0c0 6.5 8 11 8 11z" />
+                    </svg>
+                    {room.locationName}
+                  </div>
+                )}
+              </div>
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 shadow-sm">
                 <span
@@ -318,6 +321,22 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
                 />
                 {isConnected ? 'Connected' : 'Connecting…'}
               </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.back()}
+                type="button"
+              >
+                Back
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/')}
+                type="button"
+              >
+                Home
+              </Button>
             </div>
           </div>
         </div>
@@ -351,6 +370,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
           </div>
         </div>
       </div>
+      {notification && (
+        <div className="pointer-events-none fixed bottom-20 right-4 z-50 max-w-xs rounded-2xl bg-gray-900/90 px-5 py-3 text-sm text-white shadow-2xl">
+          {notification}
+        </div>
+      )}
     </main>
   );
 };

@@ -25,3 +25,14 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
+
+/* Keep reCAPTCHA badge from covering chat controls on small screens */
+.grecaptcha-badge {
+  z-index: 40 !important;
+  left: 12px !important;
+  right: auto !important;
+  bottom: 12px !important;
+  transform: scale(0.4);
+  transform-origin: bottom left;
+  opacity: 0.9;
+}

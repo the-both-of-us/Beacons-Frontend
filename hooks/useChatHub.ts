@@ -124,6 +124,12 @@ export const useChatHub = ({ roomId, onMessage, onHistory, onThreadHistory, onVo
     });
 
     connection.on('ReceiveMessage', (dto: MessageDto) => {
+      console.log('📩 Message received:', {
+        username: dto.username,
+        message: dto.message.substring(0, 100),
+        aiGenerated: dto.aiGenerated,
+        tags: dto.tags
+      });
       callbacksRef.current.onMessage?.(mapMessageDto(dto));
     });
 
@@ -194,6 +200,8 @@ export const useChatHub = ({ roomId, onMessage, onHistory, onThreadHistory, onVo
     if (!connectionRef.current || connectionRef.current.state !== HubConnectionState.Connected) {
       throw new Error('Not connected to chat hub');
     }
+
+    console.log('📤 Sending message:', { roomId, content, tags, parentMessageId });
 
     await connectionRef.current.invoke('SendMessage', {
       roomId,

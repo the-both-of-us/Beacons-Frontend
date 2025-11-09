@@ -3,12 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { RoomManager } from '@/components/admin/RoomManager';
-import { QRCodeManager } from '@/components/admin/QRCodeManager';
 import { AdminManager } from '@/components/admin/AdminManager';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 
-type Tab = 'rooms' | 'qrcodes' | 'admins';
+type Tab = 'rooms' | 'admins';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('rooms');
@@ -59,7 +58,7 @@ export default function AdminPage() {
       <div className="container mx-auto max-w-6xl py-10">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage rooms, QR codes, and admin users</p>
+          <p className="text-gray-600">Manage rooms with auto-generated QR codes and admin users</p>
         </div>
 
         {/* Tab Navigation */}
@@ -75,16 +74,6 @@ export default function AdminPage() {
                 }`}
               >
                 Manage Rooms
-              </button>
-              <button
-                onClick={() => setActiveTab('qrcodes')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'qrcodes'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Manage QR Codes
               </button>
               <button
                 onClick={() => setActiveTab('admins')}
@@ -103,7 +92,6 @@ export default function AdminPage() {
         {/* Tab Content */}
         <div className="mt-6">
           {activeTab === 'rooms' && <RoomManager />}
-          {activeTab === 'qrcodes' && <QRCodeManager />}
           {activeTab === 'admins' && <AdminManager />}
         </div>
 

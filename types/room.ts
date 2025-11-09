@@ -2,6 +2,7 @@ export interface Room {
   id: string;
   name: string;
   description?: string;
+  locationName?: string;
   createdAt: string;
   availableTags?: RoomTag[];
 }
@@ -18,5 +19,6 @@ export interface CreateRoomRequest {
   name: string;
   description?: string;
   roomId?: string;
+  locationName: string;
   availableTags?: RoomTag[];
 }
