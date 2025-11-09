@@ -16,14 +16,38 @@ export const ThreadView: React.FC<ThreadViewProps> = ({ messages, isLoading, onV
     }
   };
 
-  if (isLoading) {
+  // Show loading state only if we're loading AND there are no messages yet
+  const showLoading = isLoading && messages.length === 0;
+
+  if (showLoading) {
     return (
-      <div className="ml-8 mt-3 space-y-2 border-l-2 border-blue-200 pl-4">
-        <div className="h-16 animate-pulse rounded-lg bg-gray-100" />
+      <div className="ml-8 mt-3 space-y-3 border-l-2 border-blue-200 pl-4">
+        <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-3">
+          {/* Header with AI badge */}
+          <div className="flex items-center justify-between text-xs mb-2">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-gray-700">AI Assistant</span>
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                AI
+              </span>
+            </div>
+          </div>
+
+          {/* Loading indicator */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Generating response</span>
+            <span className="inline-flex gap-1">
+              <span className="h-2 w-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="h-2 w-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="h-2 w-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </span>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // Don't show anything if no messages and not loading
   if (!messages.length) {
     return null;
   }

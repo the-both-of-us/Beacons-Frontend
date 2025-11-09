@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { api } from '@/lib/api';
 import { Message, Room, VoteUpdate } from '@/types';
 import { MessageList } from './MessageList';
@@ -14,16 +14,14 @@ interface ChatRoomProps {
 
 export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   const [room, setRoom] = useState<Room | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [allMessages, setAllMessages] = useState<Message[]>([]); // Single flat array for ALL messages
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
-  const [threadMessages, setThreadMessages] = useState<Record<string, Message[]>>({});
-  const [loadingThreads, setLoadingThreads] = useState<Set<string>>(new Set());
-  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const { account } = useAuth();
 
+  // Load initial data
   useEffect(() => {
     let active = true;
     setIsLoading(true);
@@ -38,7 +36,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
 
         if (!active) return;
         setRoom(roomDetails);
-        setMessages(history);
+        setAllMessages(history);
       } catch (err) {
         if (!active) return;
         setError(err instanceof Error ? err.message : 'Failed to load room');
@@ -55,55 +53,112 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     };
   }, [roomId]);
 
-  const sortedMessages = useMemo(
-    () =>
-      [...messages].sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      ),
-    [messages]
-  );
+  // Separate messages into top-level and thread replies, calculate AI loading states
+  const { topLevelMessages, threadReplies, aiLoadingForMessages } = useMemo(() => {
+    const topLevel: Message[] = [];
+    const replies: Record<string, Message[]> = {};
+    const aiLoading = new Set<string>();
 
-  const { isConnected, assignedUsername, sendMessage, voteMessage: voteMessageViaHub, getThreadMessages } = useChatHub({
+    console.log('🔄 Recalculating message structure. Total messages:', allMessages.length);
+
+    allMessages.forEach((msg) => {
+      if (msg.parentMessageId) {
+        // It's a thread reply
+        if (!replies[msg.parentMessageId]) {
+          replies[msg.parentMessageId] = [];
+        }
+        replies[msg.parentMessageId].push(msg);
+      } else {
+        // It's a top-level message
+        topLevel.push(msg);
+      }
+    });
+
+    // Sort top-level messages by timestamp
+    topLevel.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    // Sort thread replies: AI first, then by timestamp
+    Object.keys(replies).forEach((parentId) => {
+      replies[parentId].sort((a, b) => {
+        if (a.aiGenerated && !b.aiGenerated) return -1;
+        if (!a.aiGenerated && b.aiGenerated) return 1;
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      });
+    });
+
+    // Determine which messages are waiting for AI response
+    topLevel.forEach((msg) => {
+      const hasLocationTag = msg.tags?.includes('location-specific-question');
+      const threadRepliesForMsg = replies[msg.id] || [];
+      const hasAiReply = threadRepliesForMsg.some((reply) => reply.aiGenerated === true);
+
+      console.log(`🔍 Message ${msg.id.slice(0, 8)}:`, {
+        hasLocationTag,
+        isThreadStarter: msg.isThreadStarter,
+        replyCount: threadRepliesForMsg.length,
+        hasAiReply,
+        replies: threadRepliesForMsg.map(r => ({
+          id: r.id.slice(0, 8),
+          aiGenerated: r.aiGenerated,
+          username: r.username
+        }))
+      });
+
+      if (hasLocationTag && msg.isThreadStarter && !hasAiReply) {
+        console.log(`⏳ Setting AI loading for message ${msg.id.slice(0, 8)}`);
+        aiLoading.add(msg.id);
+      } else if (hasLocationTag && hasAiReply) {
+        console.log(`✅ AI response found for message ${msg.id.slice(0, 8)}`);
+      }
+    });
+
+    console.log('📊 Final state:', {
+      topLevelCount: topLevel.length,
+      threadCount: Object.keys(replies).length,
+      loadingCount: aiLoading.size,
+      loadingMessages: Array.from(aiLoading).map(id => id.slice(0, 8))
+    });
+
+    return { topLevelMessages: topLevel, threadReplies: replies, aiLoadingForMessages: aiLoading };
+  }, [allMessages]);
+
+  const { isConnected, assignedUsername, sendMessage, voteMessage: voteMessageViaHub } = useChatHub({
     roomId,
     onHistory: (history) => {
-      setMessages(history);
+      setAllMessages(history);
     },
     onThreadHistory: (threadMsgs) => {
-      // Group thread messages by their parent
-      if (threadMsgs.length > 0) {
-        const parentId = threadMsgs[0].parentMessageId;
-        if (parentId) {
-          setThreadMessages((prev) => ({
-            ...prev,
-            [parentId]: threadMsgs,
-          }));
-        }
-      }
+      // Add thread messages to the main array
+      setAllMessages((prev) => {
+        const newMessages = threadMsgs.filter(
+          (msg) => !prev.some((existing) => existing.id === msg.id)
+        );
+        return [...prev, ...newMessages];
+      });
     },
     onMessage: (message) => {
-      // If it's a thread reply, add it to the thread messages
-      if (message.parentMessageId) {
-        const parentId = message.parentMessageId;
-        setThreadMessages((prev) => ({
-          ...prev,
-          [parentId]: [...(prev[parentId] || []), message],
-        }));
-        // Update reply count on parent message
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === parentId
-              ? { ...msg, replyCount: (msg.replyCount || 0) + 1 }
-              : msg
-          )
-        );
-      } else {
-        // Regular message
-        setMessages((prev) => [...prev, message]);
-      }
+      console.log('📨 Message received:', {
+        id: message.id,
+        username: message.username,
+        parentMessageId: message.parentMessageId,
+        aiGenerated: message.aiGenerated,
+        isThreadStarter: message.isThreadStarter,
+        tags: message.tags,
+      });
+
+      // Add any new message to the flat array
+      setAllMessages((prev) => {
+        // Avoid duplicates
+        if (prev.some((m) => m.id === message.id)) {
+          return prev;
+        }
+        return [...prev, message];
+      });
+
     },
     onVoteUpdate: (update: VoteUpdate) => {
-      // Update votes in main messages
-      setMessages((prev) =>
+      // Update votes in all messages
+      setAllMessages((prev) =>
         prev.map((msg) =>
           msg.id === update.messageId
             ? {
@@ -114,22 +169,6 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
             : msg
         )
       );
-      // Update votes in thread messages
-      setThreadMessages((prev) => {
-        const updated = { ...prev };
-        Object.keys(updated).forEach((threadId) => {
-          updated[threadId] = updated[threadId].map((msg) =>
-            msg.id === update.messageId
-              ? {
-                  ...msg,
-                  votes: { upvotes: update.upvotes, downvotes: update.downvotes },
-                  voteCount: update.voteCount,
-                }
-              : msg
-          );
-        });
-        return updated;
-      });
     },
     onError: (err) => {
       setError(err.message);
@@ -141,6 +180,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
     setIsSending(true);
     try {
       await sendMessage(content, tags, parentMessageId);
+
+      // Clear reply state
+      if (parentMessageId) {
+        setReplyingTo(null);
+      }
     } finally {
       setIsSending(false);
     }
@@ -165,72 +209,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   };
 
   const handleReply = (messageId: string) => {
-    const message = messages.find((m) => m.id === messageId);
+    const message = allMessages.find((m) => m.id === messageId);
     if (message) {
       setReplyingTo({ id: message.id, username: message.username });
     }
   };
-
-  const handleToggleThread = async (messageId: string) => {
-    const message = messages.find((m) => m.id === messageId);
-    if (!message) return;
-
-    const threadId = message.threadId || message.id;
-
-    // Toggle expanded state
-    setExpandedThreads((prev) => {
-      const next = new Set(prev);
-      if (next.has(messageId)) {
-        next.delete(messageId);
-      } else {
-        next.add(messageId);
-      }
-      return next;
-    });
-
-    // If not already loaded and we're expanding, fetch thread messages
-    if (!threadMessages[messageId] && !expandedThreads.has(messageId)) {
-      setLoadingThreads((prev) => new Set(prev).add(messageId));
-      try {
-        await getThreadMessages(threadId);
-        // Note: The backend should send thread messages via SignalR which will be handled by onMessage
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load thread');
-      } finally {
-        setLoadingThreads((prev) => {
-          const next = new Set(prev);
-          next.delete(messageId);
-          return next;
-        });
-      }
-    }
-  };
-
-  // Auto-fetch threads for location-specific-question messages
-  useEffect(() => {
-    const locationQuestions = messages.filter(
-      (msg) => msg.tags?.includes('location-specific-question') && msg.isThreadStarter && (msg.replyCount || 0) > 0
-    );
-
-    locationQuestions.forEach(async (msg) => {
-      const threadId = msg.threadId || msg.id;
-      // Only fetch if not already loaded
-      if (!threadMessages[msg.id] && !loadingThreads.has(msg.id)) {
-        setLoadingThreads((prev) => new Set(prev).add(msg.id));
-        try {
-          await getThreadMessages(threadId);
-        } catch (err) {
-          console.error('Failed to auto-load thread:', err);
-        } finally {
-          setLoadingThreads((prev) => {
-            const next = new Set(prev);
-            next.delete(msg.id);
-            return next;
-          });
-        }
-      }
-    });
-  }, [messages, getThreadMessages]);
 
   if (isLoading) {
     return (
@@ -259,46 +242,45 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white px-4 py-6">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-wide text-blue-600">Now chatting in</p>
-            <h1 className="text-3xl font-bold text-gray-900">{room.name}</h1>
-            <p className="text-sm text-gray-600">Room ID: {room.id}</p>
-            {room.description && (
-              <p className="mt-1 text-sm text-gray-500">{room.description}</p>
-            )}
-          </div>
-          <div className="space-y-1 text-right">
-            <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
-              <span
-                className={`h-2.5 w-2.5 rounded-full ${
-                  isConnected ? 'bg-green-500' : 'bg-gray-300'
-                }`}
-              />
-              {isConnected ? 'Connected' : 'Connecting…'}
-            </span>
-            {assignedUsername && (
-              <p className="text-xs text-gray-500">You are: {assignedUsername}</p>
-            )}
+    <main className="h-screen overflow-hidden bg-gradient-to-b from-blue-50 to-white flex flex-col">
+      {/* Header - Fixed height */}
+      <div className="flex-shrink-0 px-2 sm:px-4 py-2 sm:py-4 border-b border-gray-100 bg-white/80 backdrop-blur">
+        <div className="mx-auto max-w-5xl">
+          <div className="flex flex-col gap-1 sm:gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm uppercase tracking-wide text-blue-600">Now chatting in</p>
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{room.name}</h1>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 shadow-sm">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    isConnected ? 'bg-green-500' : 'bg-gray-300'
+                  }`}
+                />
+                {isConnected ? 'Connected' : 'Connecting…'}
+              </span>
+            </div>
           </div>
         </div>
+      </div>
 
-        <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-lg">
-          <div className="mb-6">
+      {/* Chat area - Flexible */}
+      <div className="flex-1 overflow-hidden px-2 sm:px-4 py-2 sm:py-4">
+        <div className="mx-auto max-w-5xl h-full flex flex-col">
+          {/* Messages - Scrollable */}
+          <div className="flex-1 overflow-y-auto mb-3 sm:mb-4 rounded-xl sm:rounded-2xl border border-gray-100 bg-white p-2 sm:p-4 shadow-lg">
             <MessageList
-              messages={sortedMessages}
+              messages={topLevelMessages}
+              threadReplies={threadReplies}
+              aiLoadingForMessages={aiLoadingForMessages}
               onVote={handleVote}
               onReply={handleReply}
-              threadMessages={threadMessages}
-              loadingThreads={loadingThreads}
-              expandedThreads={expandedThreads}
-              onToggleThread={handleToggleThread}
             />
           </div>
 
-          <div className="border-t border-gray-100 pt-6">
+          {/* Input - Fixed at bottom */}
+          <div className="flex-shrink-0 rounded-xl sm:rounded-2xl border border-gray-100 bg-white p-2 sm:p-4 shadow-lg">
             <MessageInput
               onSend={handleSend}
               disabled={!isConnected}
@@ -308,7 +290,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
               onCancelReply={() => setReplyingTo(null)}
             />
           </div>
-        </section>
+        </div>
       </div>
     </main>
   );
