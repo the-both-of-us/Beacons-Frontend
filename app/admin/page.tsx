@@ -23,14 +23,14 @@ export default function AdminPage() {
 
   if (!account) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 flex items-center justify-center">
+      <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4 flex items-center justify-center">
         <div className="rounded-2xl border border-blue-200 bg-white px-6 py-8 text-center max-w-md space-y-4 shadow">
-          <h1 className="text-2xl font-bold text-gray-900">Admin access required</h1>
+          <h1 className="text-2xl font-bold text-gray-900">🔦 Beacons Admin</h1>
           <p className="text-gray-600">
-            Sign in with an account that has the Admin role to manage rooms, QR codes, and admin users.
+            Sign in with your Google account to manage locations, QR codes, and admin team.
           </p>
           <Button onClick={login} className="w-full">
-            Sign in
+            Sign in with Google
           </Button>
         </div>
       </main>

@@ -70,12 +70,12 @@ export function AuthStatus({ variant = 'card' }: AuthStatusProps) {
     return (
       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-blue-900">You’re not signed in</p>
+          <p className="text-sm font-semibold text-blue-900">Join Beacons</p>
           <p className="text-sm text-blue-700">
-            Sign in with your Google account to join rooms and manage QR codes.
+            Sign in to chat, vote, and turn strangers into neighbors.
           </p>
         </div>
-        <Button onClick={login}>Sign in</Button>
+        <Button onClick={login}>Sign in with Google</Button>
       </div>
     );
   }

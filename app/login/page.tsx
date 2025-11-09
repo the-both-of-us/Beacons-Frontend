@@ -11,8 +11,8 @@ export default function LoginPage() {
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4">
       <div className="mx-auto max-w-2xl py-12 space-y-6">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Account</h1>
-          <p className="text-gray-600">Sign in with your Google account to chat, vote, and manage rooms.</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Welcome to Beacons</h1>
+          <p className="text-gray-600">Sign in with your Google account to turn strangers into neighbors. Chat, vote, and connect with your community.</p>
         </div>
 
         <AuthStatus />
