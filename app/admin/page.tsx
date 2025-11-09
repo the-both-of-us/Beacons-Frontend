@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { RoomManager } from '@/components/admin/RoomManager';
 import { AdminManager } from '@/components/admin/AdminManager';
 import { useAuth } from '@/context/AuthContext';
@@ -25,7 +26,16 @@ export default function AdminPage() {
     return (
       <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4 flex items-center justify-center">
         <div className="rounded-2xl border border-blue-200 bg-white px-6 py-8 text-center max-w-md space-y-4 shadow">
-          <h1 className="text-2xl font-bold text-gray-900">🔦 Beacons Admin</h1>
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/beacons-logo.png"
+              alt="Beacons"
+              width={60}
+              height={60}
+              className="h-16 w-16"
+            />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Beacons Admin</h1>
           <p className="text-gray-600">
             Sign in with your Google account to manage locations, QR codes, and admin team.
           </p>

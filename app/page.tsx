@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { useAuth } from '@/context/AuthContext';
@@ -13,11 +14,15 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <header className="border-b border-blue-100/60 bg-white/70 backdrop-blur">
         <div className="container mx-auto flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-blue-900">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white font-bold">
-              🔦
-            </span>
-            Beacons
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/beacons-logo.png"
+              alt="Beacons"
+              width={40}
+              height={40}
+              className="h-10 w-10"
+            />
+            <span className="text-lg font-semibold text-blue-900">Beacons</span>
           </Link>
           <AuthStatus variant="header" />
         </div>
