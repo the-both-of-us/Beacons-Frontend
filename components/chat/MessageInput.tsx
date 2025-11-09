@@ -10,14 +10,6 @@ const SparkleIcon = () => (
   </svg>
 );
 
-const ThreadIcon = () => (
-  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M7 5v6a4 4 0 004 4h2a4 4 0 014 4M7 5h2M7 5H5m12 14h2" />
-    <circle cx="5" cy="5" r="2" />
-    <circle cx="17" cy="19" r="2" />
-  </svg>
-);
-
 const buildIndicatorClass = (isSelected: boolean) =>
   `inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
     isSelected ? 'bg-white/30 text-white/90' : 'bg-white text-gray-600'
@@ -136,20 +128,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                   }
                 >
                   <span>{tag.displayName}</span>
-                  <span className="flex items-center gap-1">
-                    {tag.enableAiResponse && (
-                      <span className={buildIndicatorClass(isSelected)}>
-                        <SparkleIcon />
-                        AI
-                      </span>
-                    )}
-                    {tag.enableThreading && (
-                      <span className={buildIndicatorClass(isSelected)}>
-                        <ThreadIcon />
-                        Threads
-                      </span>
-                    )}
-                  </span>
+                  {tag.enableAiResponse && (
+                    <span className={buildIndicatorClass(isSelected)}>
+                      <SparkleIcon />
+                      AI
+                    </span>
+                  )}
                 </button>
               );
             })}

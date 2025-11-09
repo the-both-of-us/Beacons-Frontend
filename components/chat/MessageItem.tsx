@@ -20,9 +20,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onVote,
   onReply,
 }) => {
-  const hasLocationTag = message.tags?.includes('location-specific-question');
   const hasReplies = threadReplies.length > 0;
-  const showThread = hasLocationTag || hasReplies;
+  // Show thread section only when there are actual replies or AI is generating
+  const showThread = hasReplies || isAiLoading;
 
   const handleVote = (voteType: 'up' | 'down') => {
     if (onVote) {
