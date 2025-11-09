@@ -3,8 +3,12 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { useAuth } from '@/context/AuthContext';
+import { AuthStatus } from '@/components/auth/AuthStatus';
 
 export default function Home() {
+  const { account, login, logout, loading } = useAuth();
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Hero Section */}
@@ -31,25 +35,35 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
             <Link href="/scan">
               <Button size="lg" className="w-full sm:w-auto">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                </svg>
-                Scan QR Code
+                {account ? 'View Rooms' : 'Scan Room'}
               </Button>
             </Link>
-
-            <Link href="/auth/login">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                Login / Sign Up
+            {account ? (
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => logout()}
+                disabled={loading}
+              >
+                Sign Out
               </Button>
-            </Link>
-
-            <Link href="/auth/anonymous">
-              <Button size="lg" variant="ghost" className="w-full sm:w-auto">
-                Continue as Guest
+            ) : (
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => login()}
+                disabled={loading}
+              >
+                Sign In
               </Button>
-            </Link>
+            )}
           </div>
+        </div>
+
+        <div className="mb-10">
+          <AuthStatus />
         </div>
 
         {/* Features Grid */}

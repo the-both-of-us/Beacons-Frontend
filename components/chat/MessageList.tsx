@@ -1,26 +1,17 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Message, AiResponse } from '@/types';
+import { Message } from '@/types';
 import { MessageItem } from './MessageItem';
 
 interface MessageListProps {
   messages: Message[];
-  aiResponses: Map<string, AiResponse>;
-  userVotes: Record<string, 'up' | 'down'>;
-  onVote: (messageId: string, voteType: 'up' | 'down') => void;
+  onVote?: (messageId: string, voteType: 'up' | 'down') => void;
+  onReply?: (messageId: string) => void;
   onViewThread?: (threadId: string) => void;
-  threadLookup?: Record<string, string>;
 }
 
-export const MessageList: React.FC<MessageListProps> = ({
-  messages,
-  aiResponses,
-  userVotes,
-  onVote,
-  onViewThread,
-  threadLookup = {},
-}) => {
+export const MessageList: React.FC<MessageListProps> = ({ messages, onVote, onReply, onViewThread }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -29,11 +20,11 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages]);
 
-  if (messages.length === 0) {
+  if (!messages.length) {
     return (
       <div className="rounded-2xl border border-dashed border-gray-200 bg-white/60 p-10 text-center">
         <p className="text-base font-semibold text-gray-700">No messages yet</p>
-        <p className="mt-1 text-sm text-gray-500">Be the first to start the conversation.</p>
+        <p className="mt-1 text-sm text-gray-500">Be the first to say hello.</p>
       </div>
     );
   }
@@ -44,10 +35,8 @@ export const MessageList: React.FC<MessageListProps> = ({
         <MessageItem
           key={message.id}
           message={message}
-          aiResponse={aiResponses.get(message.id)}
-          threadId={threadLookup[message.id]}
-          userVote={userVotes[message.id]}
           onVote={onVote}
+          onReply={onReply}
           onViewThread={onViewThread}
         />
       ))}

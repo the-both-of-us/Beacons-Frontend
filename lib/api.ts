@@ -1,371 +1,170 @@
-// Mock API service - simulates backend API calls
+import { API_BASE_URL } from './config';
+import { getAccessToken } from './authClient';
 import {
-  User,
-  AuthResponse,
-  LoginRequest,
-  SignUpRequest,
   Message,
-  AiResponse,
-  QrVerificationRequest,
-  QrVerificationResponse,
-  Location,
   Room,
-  Thread,
+  QRCode,
+  CreateQRCodeRequest,
+  QRValidationResponse,
+  CreateRoomRequest,
+  VoteUpdate,
 } from '@/types';
-import { mockUsers, setCurrentMockUser } from './mock/mockUsers';
-import { mockLocations, getLocationById } from './mock/mockLocations';
-import { getRoomById, getRoomByLocationId, addMockRoom } from './mock/mockRooms';
-import {
-  mockMessages,
-  getMessagesByRoomId,
-  getMessageById,
-  getAiResponseByMessageId,
-  getThreadMessages,
-} from './mock/mockMessages';
-import { parseQRData, verifyQRCode } from './mock/mockQRCodes';
-import { setToken, setSessionId, generateSessionId } from './auth';
-import { delay } from './utils';
-import {
-  getThreadById,
-  getThreadsByLocationId,
-  addMockThread,
-} from './mock/mockThreads';
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true';
-
-// Simulated API delay (300ms)
-const API_DELAY = 300;
-
-interface ThreadDetails {
-  thread: Thread;
-  originalMessage: Message;
-  replies: Message[];
-  aiResponse?: AiResponse;
+interface RoomTagDto {
+  name: string;
+  displayName: string;
+  color: string;
+  enableAiResponse: boolean;
+  enableThreading: boolean;
 }
 
+interface RoomDto {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  availableTags?: RoomTagDto[];
+}
+
+interface MessageDto {
+  id: string;
+  roomId: string;
+  username: string;
+  message: string;
+  timestamp: string;
+}
+
+const buildUrl = (path: string) => {
+  if (path.startsWith('http')) return path;
+  return `${API_BASE_URL}${path}`;
+};
+
+const request = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
+  const headers = new Headers(init.headers || {});
+
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json');
+  }
+
+  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  if (typeof window !== 'undefined') {
+    const token = await getAccessToken();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+  }
+
+  const response = await fetch(buildUrl(path), {
+    ...init,
+    headers,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Request failed with status ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+};
+
+const mapRoomDto = (dto: RoomDto): Room => ({
+  id: dto.id,
+  name: dto.name,
+  description: dto.description,
+  createdAt: dto.createdAt,
+  availableTags: dto.availableTags?.map((tag) => ({
+    name: tag.name,
+    displayName: tag.displayName,
+    color: tag.color || '#e5e7eb',
+    enableAiResponse: tag.enableAiResponse,
+    enableThreading: tag.enableThreading,
+  })),
+});
+
+const mapMessageDto = (dto: MessageDto): Message => ({
+  id: dto.id,
+  roomId: dto.roomId,
+  username: dto.username,
+  message: dto.message,
+  timestamp: dto.timestamp,
+});
+
 export const api = {
-  // Authentication endpoints
-  async login(request: LoginRequest): Promise<AuthResponse> {
-    await delay(API_DELAY);
+  async getRooms(): Promise<Room[]> {
+    const rooms = await request<RoomDto[]>('/api/rooms');
+    return rooms.map(mapRoomDto);
+  },
 
-    if (!USE_MOCK) {
-      // TODO: Replace with real API call
-      throw new Error('Real API not implemented yet');
-    }
+  async getRoom(roomId: string): Promise<Room> {
+    const room = await request<RoomDto>(`/api/rooms/${encodeURIComponent(roomId)}`);
+    return mapRoomDto(room);
+  },
 
-    // Mock login
-    const user = mockUsers.find(
-      u => u.email === request.email && !u.isAnonymous
+  async getRoomMessages(roomId: string, hours = 1): Promise<Message[]> {
+    const messages = await request<MessageDto[]>(
+      `/api/rooms/${encodeURIComponent(roomId)}/messages?hours=${hours}`
     );
-
-    if (!user) {
-      throw new Error('Invalid credentials');
-    }
-
-    const mockToken = `mock_jwt_token_${user.id}_${Date.now()}`;
-
-    setToken(mockToken);
-    setCurrentMockUser(user);
-
-    return {
-      token: mockToken,
-      user,
-    };
+    return messages.map(mapMessageDto);
   },
 
-  async signup(request: SignUpRequest): Promise<AuthResponse> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    // Create new mock user
-    const newUser: User = {
-      id: `user_${Date.now()}`,
-      type: 'user',
-      username: request.username,
-      email: request.email,
-      isAnonymous: false,
-      gender: request.gender,
-      age: request.age,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    mockUsers.push(newUser);
-
-    const mockToken = `mock_jwt_token_${newUser.id}_${Date.now()}`;
-
-    setToken(mockToken);
-    setCurrentMockUser(newUser);
-
-    return {
-      token: mockToken,
-      user: newUser,
-    };
-  },
-
-  async createAnonymousSession(): Promise<AuthResponse> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    const sessionId = generateSessionId();
-
-    const anonUser: User = {
-      id: `user_anon_${Date.now()}`,
-      type: 'user',
-      username: null,
-      isAnonymous: true,
-      sessionId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    mockUsers.push(anonUser);
-
-    const mockToken = `mock_jwt_token_anon_${sessionId}`;
-
-    setToken(mockToken);
-    setSessionId(sessionId);
-    setCurrentMockUser(anonUser);
-
-    return {
-      token: mockToken,
-      user: anonUser,
-    };
-  },
-
-  async getCurrentUser(): Promise<User> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    // Get from localStorage
-    const storedUser = localStorage.getItem('mockUser');
-    if (!storedUser) {
-      throw new Error('Not authenticated');
-    }
-
-    return JSON.parse(storedUser);
+  async createRoom(data: CreateRoomRequest): Promise<Room> {
+    return request<Room>('/api/rooms', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: data.roomId || undefined,
+        name: data.name,
+        description: data.description,
+        availableTags: data.availableTags,
+      }),
+    });
   },
 
   // QR Code endpoints
-  async verifyQRCode(request: QrVerificationRequest): Promise<QrVerificationResponse> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    // Verify QR code
-    if (!verifyQRCode(request.qrData)) {
-      throw new Error('Invalid or expired QR code');
-    }
-
-    const payload = parseQRData(request.qrData);
-    if (!payload) {
-      throw new Error('Invalid QR code format');
-    }
-
-    const location = getLocationById(payload.location_id);
-    if (!location) {
-      throw new Error('Location not found');
-    }
-
-    const room = getRoomByLocationId(location.id, 'main');
-    if (!room) {
-      throw new Error('Room not found for location');
-    }
-
-    return {
-      locationId: location.id,
-      locationName: location.name,
-      roomId: room.id,
-      isValid: true,
-    };
+  async verifyQRCode(code: string): Promise<QRValidationResponse> {
+    return request<QRValidationResponse>(`/api/qrcodes/verify/${encodeURIComponent(code)}`);
   },
 
-  // Location endpoints
-  async getAllLocations(): Promise<Location[]> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    return mockLocations;
+  async createQRCode(data: CreateQRCodeRequest): Promise<QRCode> {
+    return request<QRCode>('/api/qrcodes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
-  async getLocation(id: string): Promise<Location> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    const location = getLocationById(id);
-    if (!location) {
-      throw new Error('Location not found');
-    }
-
-    return location;
+  async getQRCodes(): Promise<QRCode[]> {
+    return request<QRCode[]>('/api/qrcodes');
   },
 
-  async getRoom(id: string): Promise<Room> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    const room = getRoomById(id);
-    if (!room) {
-      throw new Error('Room not found');
-    }
-
-    return room;
+  async getQRCodeByRoom(roomId: string): Promise<QRCode> {
+    return request<QRCode>(`/api/qrcodes/room/${encodeURIComponent(roomId)}`);
   },
 
-  async getThreadsForLocation(locationId: string): Promise<Thread[]> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    return getThreadsByLocationId(locationId);
+  async deactivateQRCode(qrCodeId: string): Promise<void> {
+    return request<void>(`/api/qrcodes/${encodeURIComponent(qrCodeId)}`, {
+      method: 'DELETE',
+    });
   },
 
-  async getThreadDetails(threadId: string): Promise<ThreadDetails> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    const thread = getThreadById(threadId);
-    if (!thread) {
-      throw new Error('Thread not found');
-    }
-
-    const originalMessage = getMessageById(thread.originalMessageId);
-    if (!originalMessage) {
-      throw new Error('Original message not found');
-    }
-
-    const replies = getThreadMessages(thread.id);
-    const aiResponse = getAiResponseByMessageId(thread.originalMessageId);
-
-    return {
-      thread,
-      originalMessage,
-      replies,
-      aiResponse,
-    };
-  },
-
-  // Message endpoints
-  async getMessages(roomId: string): Promise<Message[]> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    return getMessagesByRoomId(roomId);
-  },
-
-  async sendMessage(
+  async voteMessage(
     roomId: string,
-    content: string,
-    tags: string[],
-    options?: { parentThreadId?: string | null }
-  ): Promise<Message> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    const currentUser = JSON.parse(localStorage.getItem('mockUser') || '{}');
-    const room = getRoomById(roomId);
-    if (!room) {
-      throw new Error('Room not found');
-    }
-    const locationId = room.locationId;
-    const parentThreadId = options?.parentThreadId ?? null;
-    const isThreadStarter = tags.includes('location_specific_question') && !parentThreadId;
-
-    const newMessage: Message = {
-      id: `msg_${Date.now()}`,
-      type: 'message',
-      roomId,
-      locationId,
-      userId: currentUser.id,
-      content,
-      tags,
-      isThreadStarter,
-      parentThreadId,
-      votes: {
-        upvotes: 0,
-        downvotes: 0,
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      username: currentUser.username,
-      isAnonymous: currentUser.isAnonymous,
-    };
-
-    mockMessages.push(newMessage);
-
-    if (isThreadStarter) {
-      const threadId = `thread_${newMessage.id}`;
-      const newThread: Thread = {
-        id: threadId,
-        roomId: threadId,
-        originalMessageId: newMessage.id,
-        locationId: newMessage.locationId,
-        createdAt: newMessage.createdAt,
-      };
-
-      addMockThread(newThread);
-      addMockRoom({
-        id: threadId,
-        type: 'room',
-        locationId: newMessage.locationId,
-        roomType: 'thread',
-        parentThreadId: newMessage.id,
-        filterCriteria: {},
-        createdAt: new Date().toISOString(),
-        isActive: true,
-      });
-    }
-
-    return newMessage;
-  },
-
-  async voteMessage(messageId: string, voteType: 'up' | 'down'): Promise<void> {
-    await delay(API_DELAY);
-
-    if (!USE_MOCK) {
-      throw new Error('Real API not implemented yet');
-    }
-
-    const message = mockMessages.find(m => m.id === messageId);
-    if (!message) {
-      throw new Error('Message not found');
-    }
-
-    if (voteType === 'up') {
-      message.votes.upvotes++;
-    } else {
-      message.votes.downvotes++;
-    }
+    messageId: string,
+    voteType: 'up' | 'down',
+    voterId?: string
+  ): Promise<VoteUpdate> {
+    return request<VoteUpdate>(`/api/messages/${encodeURIComponent(messageId)}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({
+        roomId,
+        voteType,
+        voterId,
+      }),
+    });
   },
 };

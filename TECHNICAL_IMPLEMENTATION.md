@@ -8,6 +8,28 @@
 
 ---
 
+> **2025-11-08 Frontend Update**
+>
+> The production UI now talks directly to the live ASP.NET backend—mock data, QR flows, and AI/thread placeholders have been removed. Current scope:
+> - `lib/api.ts` hits `/api/rooms` + `/api/rooms/{roomId}/messages` on the backend.
+> - `hooks/useChatHub.ts` uses `@microsoft/signalr` to join `/chatHub` and stream history + live messages.
+> - Active routes: `/` (marketing hero), `/scan` (room directory), `/room/[roomId]` (chat surface).
+>
+> The rest of this document captures the original aspirational design (QR scans, AI answers, threading, etc.) and remains for archival reference until those backend capabilities exist.
+
+> **2025-11-09 Authentication Update**
+>
+> The frontend now requires Azure AD / Entra ID access tokens for every REST and SignalR call. MSAL (`@azure/msal-browser`) powers the sign-in/out flow (`/login`, AuthStatus component, RequireAuth gates) and injects bearer tokens via `lib/api.ts` + SignalR `accessTokenFactory`. Populate the `NEXT_PUBLIC_AZURE_AD_*` variables in `.env.local` to point the client at your tenant/app registration.
+
+> **2025-11-08 QR Code Feature Implementation**
+>
+> QR code scanning and generation functionality has been implemented:
+> - **Backend:** QR code model, service layer, and API endpoints (`/api/qrcodes`) for creating, validating, and managing QR codes
+> - **Frontend:** Camera-based QR scanner using `html5-qrcode`, QR code generation using `qrcode` library
+> - **Admin UI:** `/admin` page for managing rooms and QR codes with tabs for "Manage Rooms" and "Manage QR Codes"
+> - **User Flow:** Users can scan QR codes on `/scan` page to instantly join rooms, or browse rooms manually as fallback
+> - **Features:** Configurable expiration dates, one QR code per room, print/download functionality for physical distribution
+
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)

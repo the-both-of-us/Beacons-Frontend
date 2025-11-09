@@ -1,21 +1,22 @@
 export interface Room {
   id: string;
-  type: 'room';
-  locationId: string;
-  roomType: 'main' | 'thread';
-  parentThreadId: string | null;
-  filterCriteria: {
-    gender?: string | null;
-    ageRange?: [number, number] | null;
-  };
+  name: string;
+  description?: string;
   createdAt: string;
-  isActive: boolean;
+  availableTags?: RoomTag[];
 }
 
-export interface Thread {
-  id: string;
-  roomId: string;
-  originalMessageId: string;
-  locationId: string;
-  createdAt: string;
+export interface RoomTag {
+  name: string;
+  displayName: string;
+  color: string;
+  enableAiResponse: boolean;
+  enableThreading: boolean;
+}
+
+export interface CreateRoomRequest {
+  name: string;
+  description?: string;
+  roomId?: string;
+  availableTags?: RoomTag[];
 }

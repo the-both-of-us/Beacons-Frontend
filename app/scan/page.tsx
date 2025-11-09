@@ -1,147 +1,182 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { QRScanner } from '@/components/qr/QRScanner';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { useAuthStore } from '@/store/authStore';
-import { useRoomStore } from '@/store/roomStore';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { mockLocations } from '@/lib/mock/mockLocations';
-import { mockRooms } from '@/lib/mock/mockRooms';
+import { Room } from '@/types';
+import { Button } from '@/components/ui/Button';
+import { QRScanner } from '@/components/qr/QRScanner';
+import { useAuth } from '@/context/AuthContext';
+
+type Tab = 'scan' | 'browse';
 
 export default function ScanPage() {
   const router = useRouter();
-  const user = useAuthStore((state) => state.user);
-  const { setLocation, setRoom } = useRoomStore();
-  const [isVerifying, setIsVerifying] = useState(false);
+  const { account, loading: authLoading, login } = useAuth();
+  const [activeTab, setActiveTab] = useState<Tab>('scan');
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showScanner, setShowScanner] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
 
-  // Redirect to login if not authenticated
-  if (!user) {
-    router.push('/auth/login');
-    return null;
-  }
-
-  const handleScanSuccess = async (qrData: string) => {
-    setIsVerifying(true);
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
     setError(null);
 
+    api
+      .getRooms()
+      .then((data) => {
+        if (active) setRooms(data);
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : 'Failed to load rooms');
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleQRScan = async (code: string) => {
+    setIsValidating(true);
+    setQrError(null);
+
     try {
-      const response = await api.verifyQRCode({ qrData });
-      const location = await api.getLocation(response.locationId);
+      const validation = await api.verifyQRCode(code);
 
-      setLocation(location);
-      setRoom(mockRooms.find(r => r.id === response.roomId)!);
-
-      router.push(`/room/${response.roomId}`);
+      if (validation.isValid && validation.roomId) {
+        // Successfully validated, redirect to room
+        router.push(`/room/${encodeURIComponent(validation.roomId)}`);
+      } else {
+        setQrError('Invalid or expired QR code. Please try again.');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'QR code verification failed');
-      setShowScanner(false);
+      setQrError(err instanceof Error ? err.message : 'Failed to validate QR code');
     } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleSkipQR = (locationId: string) => {
-    const location = mockLocations.find(l => l.id === locationId);
-    const room = mockRooms.find(r => r.locationId === locationId && r.roomType === 'main');
-
-    if (location && room) {
-      setLocation(location);
-      setRoom(room);
-      router.push(`/room/${room.id}`);
+      setIsValidating(false);
     }
   };
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white p-4">
-      <div className="container mx-auto max-w-2xl py-8">
+      <div className="container mx-auto max-w-4xl py-10">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Scan QR Code</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Join a Room</h1>
           <p className="text-gray-600">
-            Scan the QR code at your location to join the chat room
+            Scan a QR code or browse available rooms
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {showScanner ? 'Position QR Code in Frame' : 'Ready to Scan'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        {!account && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              You can scan QR codes without signing in. To send messages, sign in with your Microsoft account.
+            </span>
+            <Button size="sm" variant="outline" onClick={login} disabled={authLoading}>
+              Sign In
+            </Button>
+          </div>
+        )}
+
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+            <button
+              onClick={() => setActiveTab('scan')}
+              className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'scan'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Scan QR
+            </button>
+            <button
+              onClick={() => setActiveTab('browse')}
+              className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'browse'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Browse Rooms
+            </button>
+          </div>
+        </div>
+
+        {/* QR Scanner Tab */}
+        {activeTab === 'scan' && (
+          <div className="mb-6">
+            {qrError && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 mb-4">
+                {qrError}
+              </div>
+            )}
+
+            {isValidating && (
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-blue-700 mb-4">
+                Validating QR code...
+              </div>
+            )}
+
+            <QRScanner
+              onScanSuccess={handleQRScan}
+              onScanError={(err) => setQrError(err)}
+            />
+          </div>
+        )}
+
+        {/* Browse Rooms Tab */}
+        {activeTab === 'browse' && (
+          <>
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 mb-6">
                 {error}
               </div>
             )}
 
-            {isVerifying && (
-              <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                <p className="mt-4 text-gray-600">Verifying QR code...</p>
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <div key={idx} className="h-20 animate-pulse rounded-2xl bg-white/70" />
+                ))}
               </div>
-            )}
-
-            {!showScanner && !isVerifying && (
+            ) : rooms.length ? (
               <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-blue-900 mb-2">How to scan:</h3>
-                  <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                    <li>Click "Start Scanning" below</li>
-                    <li>Allow camera access when prompted</li>
-                    <li>Position the QR code within the frame</li>
-                    <li>Wait for automatic detection</li>
-                  </ol>
-                </div>
-
-                <Button onClick={() => setShowScanner(true)} className="w-full" size="lg">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                  </svg>
-                  Start Scanning
-                </Button>
-
-                {/* Test/Demo Shortcuts */}
-                <div className="border-t pt-4 mt-6">
-                  <p className="text-sm text-gray-600 mb-3 text-center">Testing shortcuts (skip QR scan):</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {mockLocations.map((location) => (
-                      <Button
-                        key={location.id}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSkipQR(location.id)}
-                      >
-                        {location.name.split(' ').slice(-1)[0]}
-                      </Button>
-                    ))}
+                {rooms.map((room) => (
+                  <div key={room.id} className="rounded-2xl border border-gray-100 bg-white/80 p-5 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm uppercase tracking-wide text-blue-600">Room</p>
+                        <p className="text-lg font-semibold text-gray-900">{room.name}</p>
+                        <p className="text-sm text-gray-600">ID: {room.id}</p>
+                        {room.description && (
+                          <p className="mt-1 text-sm text-gray-500">{room.description}</p>
+                        )}
+                      </div>
+                      <Link href={`/room/${encodeURIComponent(room.id)}`}>
+                        <Button>Join Room</Button>
+                      </Link>
+                    </div>
                   </div>
-                </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-gray-100 bg-white px-4 py-6 text-center text-gray-600">
+                No rooms available. Make sure the backend is running and seeded.
               </div>
             )}
+          </>
+        )}
 
-            {showScanner && !isVerifying && (
-              <div>
-                <QRScanner onScanSuccess={handleScanSuccess} />
-                <Button
-                  variant="outline"
-                  onClick={() => setShowScanner(false)}
-                  className="w-full mt-4"
-                >
-                  Cancel Scan
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="mt-4 text-center">
-          <Link href="/" className="text-sm text-gray-600 hover:text-gray-700">
+        <div className="mt-6 text-center">
+          <Link href="/" className="text-sm text-gray-600 hover:text-gray-800">
             ← Back to Home
           </Link>
         </div>
