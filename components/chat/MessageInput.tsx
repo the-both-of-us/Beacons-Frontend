@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, KeyboardEvent, RefObject, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { RoomTag } from '@/types';
 
@@ -11,6 +11,7 @@ interface MessageInputProps {
   availableTags?: RoomTag[];
   replyingTo?: { id: string; username: string } | null;
   onCancelReply?: () => void;
+  textAreaRef?: RefObject<HTMLTextAreaElement>;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -20,6 +21,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   availableTags = [],
   replyingTo = null,
   onCancelReply,
+  textAreaRef,
 }) => {
   const [content, setContent] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -33,8 +35,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     );
   };
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
+  const sendMessage = async () => {
     if (!content.trim()) {
       setError('Message cannot be empty');
       return;
@@ -46,8 +47,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       setContent('');
       setSelectedTags([]);
       onCancelReply?.();
+      textAreaRef?.current?.focus();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message');
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    await sendMessage();
+  };
+
+  const handleKeyDown = async (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      await sendMessage();
     }
   };
 
@@ -115,7 +129,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         placeholder="Share an update or ask a question…"
         value={content}
         onChange={(event) => setContent(event.target.value)}
+        onKeyDown={handleKeyDown}
         disabled={disabled || isSubmitting}
+        ref={textAreaRef}
       />
 
       <div className="flex justify-end">

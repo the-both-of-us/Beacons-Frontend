@@ -24,6 +24,15 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const { account, isAdmin } = useAuth();
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const focusMessageInput = () => {
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => messageInputRef.current?.focus());
+    } else {
+      messageInputRef.current?.focus();
+    }
+  };
 
   // Load initial data
   useEffect(() => {
@@ -202,6 +211,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
       }
     } finally {
       setIsSending(false);
+      focusMessageInput();
     }
   };
 
@@ -229,6 +239,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
       setReplyingTo({ id: message.id, username: message.username });
     }
   };
+
+  useEffect(() => {
+    if (replyingTo) {
+      focusMessageInput();
+    }
+  }, [replyingTo]);
 
   if (isLoading) {
     return (
@@ -330,6 +346,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId }) => {
               availableTags={room?.availableTags}
               replyingTo={replyingTo}
               onCancelReply={() => setReplyingTo(null)}
+              textAreaRef={messageInputRef}
             />
           </div>
         </div>
