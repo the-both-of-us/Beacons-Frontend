@@ -24,6 +24,6 @@ Still manual: run the backend (`dotnet run`) + frontend (`npm run dev`), then ex
 - Attach screenshots/GIFs for UI tweaks and call out manual verification steps.
 
 ## Security & Configuration Tips
-- All runtime config is via `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SIGNALR_URL`, Auth.js vars (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`), plus `ADMIN_EMAILS` for role assignments. Keep `.env.example` in sync.
+- All runtime config is via `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SIGNALR_URL`, the reCAPTCHA site key (`NEXT_PUBLIC_RECAPTCHA_SITE_KEY`), Auth.js vars (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`), plus `ADMIN_EMAILS` for role assignments. Keep `.env.example` in sync.
 - No secrets belong in the repo. Browsers should only see `NEXT_PUBLIC_*` values.
 - When enabling new backend endpoints, update `lib/api.ts` instead of inlining `fetch` calls.

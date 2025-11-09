@@ -9,6 +9,7 @@ import {
 import { SIGNALR_URL } from '@/lib/config';
 import { Message, VoteUpdate } from '@/types';
 import { getAccessToken } from '@/lib/authClient';
+import { getRecaptchaToken } from '@/lib/recaptcha';
 
 interface MessageDto {
   id: string;
@@ -99,6 +100,11 @@ export const useChatHub = ({ roomId, onMessage, onHistory, onThreadHistory, onVo
 
     connectionRef.current = connection;
 
+    const joinRoomWithVerification = async () => {
+      const token = await getRecaptchaToken('join_room');
+      await connection.invoke('JoinRoom', roomId, token);
+    };
+
     connection.on('AssignedUsername', (payload: { username: string; isAuthenticated?: boolean; roles?: string[] } | string) => {
       if (typeof payload === 'string') {
         setAssignedUsername(payload);
@@ -131,10 +137,11 @@ export const useChatHub = ({ roomId, onMessage, onHistory, onThreadHistory, onVo
 
     connection.onreconnecting(() => setIsConnected(false));
     connection.onreconnected(async () => {
-      setIsConnected(true);
       try {
-        await connection.invoke('JoinRoom', roomId);
+        await joinRoomWithVerification();
+        setIsConnected(true);
       } catch (error) {
+        setIsConnected(false);
         callbacksRef.current.onError?.(error as Error);
       }
     });
@@ -147,7 +154,7 @@ export const useChatHub = ({ roomId, onMessage, onHistory, onThreadHistory, onVo
       try {
         await connection.start();
         if (isCancelled) return;
-        await connection.invoke('JoinRoom', roomId);
+        await joinRoomWithVerification();
         if (!isCancelled) {
           setIsConnected(true);
         }
