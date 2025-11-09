@@ -8,6 +8,9 @@ import {
   QRValidationResponse,
   CreateRoomRequest,
   VoteUpdate,
+  Admin,
+  CreateAdminRequest,
+  AdminStatusResponse,
 } from '@/types';
 
 interface RoomTagDto {
@@ -166,5 +169,31 @@ export const api = {
         voterId,
       }),
     });
+  },
+
+  // Admin management endpoints
+  async getAdmins(): Promise<Admin[]> {
+    return request<Admin[]>('/api/admins');
+  },
+
+  async getAdminByEmail(email: string): Promise<Admin> {
+    return request<Admin>(`/api/admins/${encodeURIComponent(email)}`);
+  },
+
+  async createAdmin(data: CreateAdminRequest): Promise<Admin> {
+    return request<Admin>('/api/admins', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteAdmin(email: string): Promise<void> {
+    return request<void>(`/api/admins/${encodeURIComponent(email)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async getCurrentAdminStatus(): Promise<AdminStatusResponse> {
+    return request<AdminStatusResponse>('/api/admins/me');
   },
 };

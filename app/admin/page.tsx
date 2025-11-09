@@ -4,10 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { RoomManager } from '@/components/admin/RoomManager';
 import { QRCodeManager } from '@/components/admin/QRCodeManager';
+import { AdminManager } from '@/components/admin/AdminManager';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 
-type Tab = 'rooms' | 'qrcodes';
+type Tab = 'rooms' | 'qrcodes' | 'admins';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('rooms');
@@ -27,7 +28,7 @@ export default function AdminPage() {
         <div className="rounded-2xl border border-blue-200 bg-white px-6 py-8 text-center max-w-md space-y-4 shadow">
           <h1 className="text-2xl font-bold text-gray-900">Admin access required</h1>
           <p className="text-gray-600">
-            Sign in with an account that has the Admin role to manage rooms and QR codes.
+            Sign in with an account that has the Admin role to manage rooms, QR codes, and admin users.
           </p>
           <Button onClick={login} className="w-full">
             Sign in
@@ -43,8 +44,7 @@ export default function AdminPage() {
         <div className="rounded-2xl border border-amber-200 bg-white px-6 py-8 text-center max-w-md space-y-4 shadow">
           <h1 className="text-2xl font-bold text-gray-900">Insufficient permissions</h1>
           <p className="text-gray-600">
-            You’re signed in, but your account isn’t listed in <code>ADMIN_EMAILS</code>. Ask an admin to add your email, then
-            sign in again.
+            You're signed in, but your account doesn't have admin privileges. Ask an existing admin to add your email through the admin dashboard.
           </p>
           <Button onClick={login} variant="outline" className="w-full">
             Switch Account
@@ -59,7 +59,7 @@ export default function AdminPage() {
       <div className="container mx-auto max-w-6xl py-10">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage rooms and QR codes</p>
+          <p className="text-gray-600">Manage rooms, QR codes, and admin users</p>
         </div>
 
         {/* Tab Navigation */}
@@ -86,6 +86,16 @@ export default function AdminPage() {
               >
                 Manage QR Codes
               </button>
+              <button
+                onClick={() => setActiveTab('admins')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'admins'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Manage Admins
+              </button>
             </nav>
           </div>
         </div>
@@ -94,6 +104,7 @@ export default function AdminPage() {
         <div className="mt-6">
           {activeTab === 'rooms' && <RoomManager />}
           {activeTab === 'qrcodes' && <QRCodeManager />}
+          {activeTab === 'admins' && <AdminManager />}
         </div>
 
         <div className="mt-8 text-center">
