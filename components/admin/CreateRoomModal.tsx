@@ -290,7 +290,7 @@ export function CreateRoomModal({ onClose, onSuccess }: CreateRoomModalProps) {
                           />
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div>
                         <label className="inline-flex items-center gap-2 text-sm text-gray-700">
                           <input
                             type="checkbox"
@@ -298,17 +298,9 @@ export function CreateRoomModal({ onClose, onSuccess }: CreateRoomModalProps) {
                             onChange={(e) => updateTag(index, { enableAiResponse: e.target.checked })}
                             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                           />
-                          Enable AI reply
+                          Enable AI response
                         </label>
-                        <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                          <input
-                            type="checkbox"
-                            checked={tag.enableThreading}
-                            onChange={(e) => updateTag(index, { enableThreading: e.target.checked })}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          Enable threading
-                        </label>
+                        <p className="text-xs text-gray-500 mt-1">AI will automatically reply to messages with this tag</p>
                       </div>
                     </div>
                   </div>
